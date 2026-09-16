@@ -1,0 +1,40 @@
+have_func: checking for rb_ext_ractor_safe() in ruby.h... -------------------- yes
+
+PATH=".;C:/Ruby34-x64/lib;C:\Ruby34-x64\bin;C:\Ruby34-x64\msys64\ucrt64\bin;C:\Ruby34-x64\msys64\usr\bin;C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.5.0_x64__8wekyb3d8bbwe;C:\Ruby34-x64\bin;C:\Program Files\OpenSSH\;C:\Oracle\product\12.2.0\client_2\bin;C:\Ora64\product\12.2.0\client_1\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\dotnet\;c:\cygwin64\bin;c:\cygwin64\sbin;c:\cygwin64\usr\sbin;C:\mut\80道具\PSTools;C;\Program Files\avs\bin;C:\Program Files\avs\bin32;C:\Program Files\PuTTY\;C:\Program Files\Microsoft SQL Server\150\Tools\Binn\;C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\;C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit\;C:\Program Files\7-Zip;C:\Program Files\Git\cmd;C:\Ruby40-x64\sqlite3;C:\Users\m002831\AppData\Local\Programs\Python\Python314\Scripts\;C:\Users\m002831\AppData\Local\Programs\Python\Python314\;C:\Users\m002831\bin;C:\Oracle\bin;C:\Users\m002831\AppData\Local\Microsoft\WindowsApps;C:\Program Files (x86)\Nmap;C:\mut\80道具;C:\Users\m002831\.dotnet\tools;C:\Users\m002831\AppData\Local\Programs\Microsoft VS Code\bin" ASAN_OPTIONS=detect_leaks=0 "gcc -o conftest.exe -IC:/Ruby34-x64/include/ruby-3.4.0/x64-mingw-ucrt -IC:/Ruby34-x64/include/ruby-3.4.0/ruby/backward -IC:/Ruby34-x64/include/ruby-3.4.0 -I. -D_WIN32_WINNT=0x0600 -D__MINGW_USE_VC2005_COMPAT -D_FILE_OFFSET_BITS=64  -O3 -fstack-protector-strong conftest.c -L. -LC:/Ruby34-x64/lib -L. -pipe -s -fstack-protector-strong -lpthread -Wl,--no-as-needed     -lx64-ucrt-ruby340  -lshell32 -lws2_32 -liphlpapi -limagehlp -lshlwapi -lbcrypt  "
+checked program was:
+/* begin */
+1: #include "ruby.h"
+2: 
+3: #include <winsock2.h>
+4: #include <windows.h>
+5: int main(int argc, char **argv)
+6: {
+7:   return !!argv[argc];
+8: }
+/* end */
+
+PATH=".;C:/Ruby34-x64/lib;C:\Ruby34-x64\bin;C:\Ruby34-x64\msys64\ucrt64\bin;C:\Ruby34-x64\msys64\usr\bin;C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.5.0_x64__8wekyb3d8bbwe;C:\Ruby34-x64\bin;C:\Program Files\OpenSSH\;C:\Oracle\product\12.2.0\client_2\bin;C:\Ora64\product\12.2.0\client_1\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\dotnet\;c:\cygwin64\bin;c:\cygwin64\sbin;c:\cygwin64\usr\sbin;C:\mut\80道具\PSTools;C;\Program Files\avs\bin;C:\Program Files\avs\bin32;C:\Program Files\PuTTY\;C:\Program Files\Microsoft SQL Server\150\Tools\Binn\;C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\;C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit\;C:\Program Files\7-Zip;C:\Program Files\Git\cmd;C:\Ruby40-x64\sqlite3;C:\Users\m002831\AppData\Local\Programs\Python\Python314\Scripts\;C:\Users\m002831\AppData\Local\Programs\Python\Python314\;C:\Users\m002831\bin;C:\Oracle\bin;C:\Users\m002831\AppData\Local\Microsoft\WindowsApps;C:\Program Files (x86)\Nmap;C:\mut\80道具;C:\Users\m002831\.dotnet\tools;C:\Users\m002831\AppData\Local\Programs\Microsoft VS Code\bin" ASAN_OPTIONS=detect_leaks=0 "gcc -o conftest.exe -IC:/Ruby34-x64/include/ruby-3.4.0/x64-mingw-ucrt -IC:/Ruby34-x64/include/ruby-3.4.0/ruby/backward -IC:/Ruby34-x64/include/ruby-3.4.0 -I. -D_WIN32_WINNT=0x0600 -D__MINGW_USE_VC2005_COMPAT -D_FILE_OFFSET_BITS=64  -O3 -fstack-protector-strong conftest.c -L. -LC:/Ruby34-x64/lib -L. -pipe -s -fstack-protector-strong -lpthread -Wl,--no-as-needed     -lx64-ucrt-ruby340  -lshell32 -lws2_32 -liphlpapi -limagehlp -lshlwapi -lbcrypt  "
+checked program was:
+/* begin */
+ 1: #include "ruby.h"
+ 2: 
+ 3: #include <winsock2.h>
+ 4: #include <windows.h>
+ 5: #include <ruby.h>
+ 6: 
+ 7: /*top*/
+ 8: extern int t(void);
+ 9: int main(int argc, char **argv)
+10: {
+11:   if (argc > 1000000) {
+12:     int (* volatile tp)(void)=(int (*)(void))&t;
+13:     printf("%d", (*tp)());
+14:   }
+15: 
+16:   return !!argv[argc];
+17: }
+18: int t(void) { void ((*volatile p)()); p = (void ((*)()))rb_ext_ractor_safe; return !p; }
+/* end */
+
+--------------------
+

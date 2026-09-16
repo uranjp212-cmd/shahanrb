@@ -1,0 +1,104 @@
+.order-container {
+    max-width: 800px;
+    margin: 40px auto;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  
+  .user-info {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 20px;
+  }
+  
+  .order-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+  }
+  
+  .order-table th, .order-table td {
+    border: 1px solid #e0e0e0;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  .order-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  
+  .input-item-cd {
+    width: 90%;
+    padding: 8px;
+    font-size: 16px;
+    letter-spacing: 2px; /* 6桁コードを見やすく表示 */
+    font-family: monospace;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+  }
+  
+  .input-quantity {
+    width: 70px;
+    padding: 8px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+  }
+  
+  .table-actions {
+    margin-bottom: 24px;
+    text-align: left;
+  }
+  
+  .btn-secondary {
+    background-color: #6c757d;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .btn-remove {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    background-color: #0056b3;
+    color: white;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+/* 追加分のスタイル */
+.product-name-cell {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.product-price-cell {
+  text-align: right;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+/* 入力エラー時のスタイル（任意） */
+.input-item-cd:invalid {
+  border-color: #dc3545;
+}

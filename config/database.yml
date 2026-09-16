@@ -1,0 +1,32 @@
+default: &default
+  adapter: oracle_enhanced
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  encoding: utf8
+  # 接続方法 1: ホスト名・ポート・SID / サービス名で指定する場合
+  host: 172.18.4.59
+  port: 1521
+  database: ff2 # SID またはサービス名  
+  username: test003
+  password: test_003
+
+development:
+  <<: *default
+  username: mpls
+  password: mpls
+  database: ff2
+
+test:
+  <<: *default
+  database: ORCL_TEST
+
+production:
+  <<: *default
+  # username: mpls
+  # password: mpls
+  # database: mplocal
+
+ff2:
+  <<: *default
+  username: test003
+  password: test_003
+  database: ff2

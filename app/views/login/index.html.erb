@@ -1,0 +1,26 @@
+<div class="login-container">
+  <div style="text-align: center;">
+    <span class="badge-internal">社内限定index</span>
+  </div>
+  <h2>社員販売 ログイン</h2>
+
+  <% if flash[:alert] %>
+    <div class="alert"><%= flash[:alert] %></div>
+  <% end %>
+
+  <%= form_with(url: login_path, scope: :session, local: true) do |f| %>
+    <div class="field">
+      <%= f.label :shaincd, "社員コード" %>
+      <%= f.text_field :shaincd, placeholder: "例: 10001", required: true, autofocus: true %>
+    </div>
+
+    <div class="field">
+      <%= f.label :password, "パスワード" %>
+      <%= f.password_field :password, required: true %>
+    </div>
+
+    <div class="actions">
+      <%= f.submit "ログイン", class: "btn-primary" %>
+    </div>
+  <% end %>
+</div>

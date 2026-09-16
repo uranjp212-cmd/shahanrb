@@ -1,0 +1,23 @@
+current directory: d:/shahanrb/ruby/3.4.0/gems/websocket-driver-0.8.2/ext/websocket-driver
+C:/Ruby34-x64/bin/ruby.exe extconf.rb
+creating Makefile
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/websocket-driver-0.8.2/ext/websocket-driver
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-ott7j8 sitelibdir\=./.gem.20260907-3816-ott7j8 clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/websocket-driver-0.8.2/ext/websocket-driver
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-ott7j8 sitelibdir\=./.gem.20260907-3816-ott7j8
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+generating websocket_mask-x64-mingw-ucrt.def
+compiling websocket_mask.c
+linking shared-object websocket_mask.so
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/websocket-driver-0.8.2/ext/websocket-driver
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-ott7j8 sitelibdir\=./.gem.20260907-3816-ott7j8 install
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+/usr/bin/install -c -m 0755 websocket_mask.so ./.gem.20260907-3816-ott7j8
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/websocket-driver-0.8.2/ext/websocket-driver
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-ott7j8 sitelibdir\=./.gem.20260907-3816-ott7j8 clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.

@@ -1,0 +1,29 @@
+current directory: d:/shahanrb/ruby/3.4.0/gems/date-3.5.1/ext/date
+C:/Ruby34-x64/bin/ruby.exe extconf.rb
+checking for rb_category_warn()... yes
+checking for timezone in time.h with -Werror... no
+checking for altzone in time.h with -Werror... no
+creating Makefile
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/date-3.5.1/ext/date
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-526m1z sitelibdir\=./.gem.20260907-3816-526m1z clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/date-3.5.1/ext/date
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-526m1z sitelibdir\=./.gem.20260907-3816-526m1z
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+generating date_core-x64-mingw-ucrt.def
+compiling date_core.c
+compiling date_parse.c
+compiling date_strftime.c
+compiling date_strptime.c
+linking shared-object date_core.so
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/date-3.5.1/ext/date
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-526m1z sitelibdir\=./.gem.20260907-3816-526m1z install
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+/usr/bin/install -c -m 0755 date_core.so ./.gem.20260907-3816-526m1z
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/date-3.5.1/ext/date
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-526m1z sitelibdir\=./.gem.20260907-3816-526m1z clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.

@@ -1,0 +1,22 @@
+current directory: d:/shahanrb/ruby/3.4.0/gems/nio4r-2.7.5/ext/nio4r
+C:/Ruby34-x64/bin/ruby.exe extconf.rb
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/nio4r-2.7.5/ext/nio4r
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-krc10e sitelibdir\=./.gem.20260907-3816-krc10e clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+make: *** ターゲット 'clean' を make するルールがありません.  中止.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/nio4r-2.7.5/ext/nio4r
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-krc10e sitelibdir\=./.gem.20260907-3816-krc10e
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+make: 'all' に対して行うべき事はありません.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/nio4r-2.7.5/ext/nio4r
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-krc10e sitelibdir\=./.gem.20260907-3816-krc10e install
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+make: 'install' に対して行うべき事はありません.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/nio4r-2.7.5/ext/nio4r
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-krc10e sitelibdir\=./.gem.20260907-3816-krc10e clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+make: *** ターゲット 'clean' を make するルールがありません.  中止.

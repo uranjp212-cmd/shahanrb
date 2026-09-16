@@ -1,0 +1,24 @@
+current directory: d:/shahanrb/ruby/3.4.0/gems/debug-1.11.1/ext/debug
+C:/Ruby34-x64/bin/ruby.exe extconf.rb
+creating Makefile
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/debug-1.11.1/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-m3rb65 sitelibdir\=./.gem.20260907-17748-m3rb65 clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/debug-1.11.1/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-m3rb65 sitelibdir\=./.gem.20260907-17748-m3rb65
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+generating debug-x64-mingw-ucrt.def
+compiling debug.c
+compiling iseq_collector.c
+linking shared-object debug/debug.so
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/debug-1.11.1/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-m3rb65 sitelibdir\=./.gem.20260907-17748-m3rb65 install
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+/usr/bin/install -c -m 0755 debug.so ./.gem.20260907-17748-m3rb65/debug
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/debug-1.11.1/ext/debug
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-m3rb65 sitelibdir\=./.gem.20260907-17748-m3rb65 clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.

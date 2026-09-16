@@ -1,0 +1,23 @@
+current directory: d:/shahanrb/ruby/3.4.0/gems/racc-1.8.1/ext/racc/cparse
+C:/Ruby34-x64/bin/ruby.exe extconf.rb
+creating Makefile
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/racc-1.8.1/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-am0gep sitelibdir\=./.gem.20260907-3816-am0gep clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/racc-1.8.1/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-am0gep sitelibdir\=./.gem.20260907-3816-am0gep
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+generating cparse-x64-mingw-ucrt.def
+compiling cparse.c
+linking shared-object racc/cparse.so
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/racc-1.8.1/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-am0gep sitelibdir\=./.gem.20260907-3816-am0gep install
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+/usr/bin/install -c -m 0755 cparse.so ./.gem.20260907-3816-am0gep/racc
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/racc-1.8.1/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20260907-3816-am0gep sitelibdir\=./.gem.20260907-3816-am0gep clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.

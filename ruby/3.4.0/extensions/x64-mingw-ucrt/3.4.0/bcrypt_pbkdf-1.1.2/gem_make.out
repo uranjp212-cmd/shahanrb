@@ -1,0 +1,27 @@
+current directory: d:/shahanrb/ruby/3.4.0/gems/bcrypt_pbkdf-1.1.2/ext/mri
+C:/Ruby34-x64/bin/ruby.exe extconf.rb
+creating Makefile
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/bcrypt_pbkdf-1.1.2/ext/mri
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-7ztec0 sitelibdir\=./.gem.20260907-17748-7ztec0 clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/bcrypt_pbkdf-1.1.2/ext/mri
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-7ztec0 sitelibdir\=./.gem.20260907-17748-7ztec0
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+generating bcrypt_pbkdf_ext-x64-mingw-ucrt.def
+compiling bcrypt_pbkdf.c
+compiling bcrypt_pbkdf_ext.c
+compiling blowfish.c
+compiling explicit_bzero.c
+compiling hash_sha512.c
+linking shared-object bcrypt_pbkdf_ext.so
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/bcrypt_pbkdf-1.1.2/ext/mri
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-7ztec0 sitelibdir\=./.gem.20260907-17748-7ztec0 install
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.
+/usr/bin/install -c -m 0755 bcrypt_pbkdf_ext.so ./.gem.20260907-17748-7ztec0
+
+current directory: d:/shahanrb/ruby/3.4.0/gems/bcrypt_pbkdf-1.1.2/ext/mri
+make DESTDIR\= sitearchdir\=./.gem.20260907-17748-7ztec0 sitelibdir\=./.gem.20260907-17748-7ztec0 clean
+make: 警告: ジョブサーバーが利用不可: 今回は -j1 を使います. 親 make ルールに `+' を追加しましょう.

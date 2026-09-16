@@ -1,0 +1,225 @@
+# frozen_string_literal: true
+
+require "rubygems"
+require "bundler"
+require "yaml"
+Bundler.setup(:default, :development)
+
+$:.unshift(File.expand_path("../../lib", __FILE__))
+config_path = File.expand_path("../spec_config.yaml", __FILE__)
+if File.exist?(config_path)
+  puts "==> Loading config from #{config_path}"
+  config = YAML.load_file(config_path)
+else
+  puts "==> Loading config from ENV or use default"
+  config = { "rails" => {}, "database" => {} }
+end
+
+require "rspec"
+
+if !defined?(RUBY_ENGINE) || RUBY_ENGINE == "ruby" || RUBY_ENGINE == "truffleruby"
+  puts "==> Running specs with ruby version #{RUBY_VERSION}"
+  require "oci8"
+elsif RUBY_ENGINE == "jruby"
+  puts "==> Running specs with JRuby version #{JRUBY_VERSION}"
+end
+
+require "active_record"
+
+require "active_support/core_ext/module/attribute_accessors"
+require "active_support/core_ext/class/attribute_accessors"
+
+require "active_support/log_subscriber"
+require "active_record/log_subscriber"
+
+require "logger"
+
+# On JRuby, load the oracle_enhanced adapter first so that the JDBC driver
+# (ojdbc17.jar) is registered with DriverManager before ruby-plsql tries to
+# load it. ruby-plsql only looks for ojdbc6/7.jar and would fail otherwise.
+#
+# File.exists? was removed in Ruby 3.2. Restore it temporarily so that
+# ruby-plsql's JDBC connection code can load under JRuby 10.x (Ruby 3.4).
+require "active_record/connection_adapters/oracle_enhanced_adapter"
+File.singleton_class.alias_method(:exists?, :exist?) unless File.respond_to?(:exists?)
+# ruby-plsql calls ActiveRecord::Base.default_timezone (moved to ActiveRecord
+# module in Rails 7.0). Restore the class-level accessor as a shim.
+unless ActiveRecord::Base.respond_to?(:default_timezone)
+  ActiveRecord::Base.define_singleton_method(:default_timezone) { ActiveRecord.default_timezone }
+end
+require "ruby-plsql"
+
+puts "==> Effective ActiveRecord version #{ActiveRecord::VERSION::STRING}"
+
+module LoggerSpecHelper
+  def set_logger
+    @logger = MockLogger.new
+    @old_logger = ActiveRecord::Base.logger
+
+    @notifier = ActiveSupport::Notifications::Fanout.new
+
+    ActiveSupport::LogSubscriber.colorize_logging = false
+
+    ActiveRecord::Base.logger = @logger
+    @old_notifier = ActiveSupport::Notifications.notifier
+    ActiveSupport::Notifications.notifier = @notifier
+
+    ActiveRecord::LogSubscriber.attach_to(:active_record)
+  end
+
+  class MockLogger
+    LEVELS = %i[debug info warn error fatal unknown]
+
+    attr_reader :flush_count
+
+    def initialize
+      @flush_count = 0
+      @logged = Hash.new { |h, k| h[k] = [] }
+    end
+
+    # used in ActiveRecord 2.x
+    def debug?
+      true
+    end
+
+    def level
+      0
+    end
+
+    def method_missing(*args)
+      if LEVELS.include?(args[0])
+        level, message  = args
+        @logged[level] << message
+      else
+        super
+      end
+    end
+
+    def logged(level)
+      @logged[level].compact.map { |l| l.to_s.strip }
+    end
+
+    def output(level)
+      logged(level).join("\n")
+    end
+
+    def flush
+      @flush_count += 1
+    end
+
+    def clear(level)
+      @logged[level] = []
+    end
+  end
+
+  def clear_logger
+    ActiveRecord::Base.logger = @old_logger
+    @logger = nil
+
+    ActiveSupport::Notifications.notifier = @old_notifier
+    @notifier = nil
+  end
+
+  # Wait notifications to be published (for Rails 3.0)
+  # should not be currently used with sync queues in tests
+  def wait
+    @notifier.wait if @notifier
+  end
+end
+
+ActiveRecord::LogSubscriber::IGNORE_PAYLOAD_NAMES.replace(["EXPLAIN"])
+
+module SchemaSpecHelper
+  def schema_define(&block)
+    ActiveRecord::Schema.define do
+      suppress_messages do
+        instance_eval(&block)
+      end
+    end
+  end
+end
+
+module SchemaDumpingHelper
+  def dump_table_schema(table, connection = ActiveRecord::Base.connection)
+    old_ignore_tables = ActiveRecord::SchemaDumper.ignore_tables
+    ActiveRecord::SchemaDumper.ignore_tables = connection.data_sources - [table]
+    stream = StringIO.new
+    ActiveRecord::SchemaDumper.dump(ActiveRecord::Base.connection_pool, stream)
+    stream.string
+  ensure
+    ActiveRecord::SchemaDumper.ignore_tables = old_ignore_tables
+  end
+end
+
+DATABASE_NAME         = config["database"]["name"]         || ENV["DATABASE_NAME"]         || "orcl"
+DATABASE_HOST         = config["database"]["host"]         || ENV["DATABASE_HOST"]         || "127.0.0.1"
+DATABASE_PORT         = config["database"]["port"]         || ENV["DATABASE_PORT"]         || 1521
+DATABASE_USER         = config["database"]["user"]         || ENV["DATABASE_USER"]         || "oracle_enhanced"
+DATABASE_PASSWORD     = config["database"]["password"]     || ENV["DATABASE_PASSWORD"]     || "oracle_enhanced"
+DATABASE_SCHEMA       = config["database"]["schema"]       || ENV["DATABASE_SCHEMA"]       || "oracle_enhanced_schema"
+DATABASE_SYS_PASSWORD = config["database"]["sys_password"] || ENV["DATABASE_SYS_PASSWORD"] || "admin"
+
+CONNECTION_PARAMS = {
+  adapter: "oracle_enhanced",
+  database: DATABASE_NAME,
+  host: DATABASE_HOST,
+  port: DATABASE_PORT,
+  username: DATABASE_USER,
+  password: DATABASE_PASSWORD
+}
+
+CONNECTION_WITH_SCHEMA_PARAMS = {
+  adapter: "oracle_enhanced",
+  database: DATABASE_NAME,
+  host: DATABASE_HOST,
+  port: DATABASE_PORT,
+  username: DATABASE_USER,
+  password: DATABASE_PASSWORD,
+  schema: DATABASE_SCHEMA
+}
+
+CONNECTION_WITH_TIMEZONE_PARAMS = {
+  adapter: "oracle_enhanced",
+  database: DATABASE_NAME,
+  host: DATABASE_HOST,
+  port: DATABASE_PORT,
+  username: DATABASE_USER,
+  password: DATABASE_PASSWORD,
+  time_zone: "Europe/Riga"
+}
+
+SYS_CONNECTION_PARAMS = {
+  adapter: "oracle_enhanced",
+  database: DATABASE_NAME,
+  host: DATABASE_HOST,
+  port: DATABASE_PORT,
+  username: "sys",
+  password: DATABASE_SYS_PASSWORD,
+  privilege: "SYSDBA"
+}
+
+SYSTEM_CONNECTION_PARAMS = {
+  adapter: "oracle_enhanced",
+  database: DATABASE_NAME,
+  host: DATABASE_HOST,
+  port: DATABASE_PORT,
+  username: "system",
+  password: DATABASE_SYS_PASSWORD
+}
+
+SERVICE_NAME_CONNECTION_PARAMS = {
+  adapter: "oracle_enhanced",
+  database: "/#{DATABASE_NAME}",
+  host: DATABASE_HOST,
+  port: DATABASE_PORT,
+  username: DATABASE_USER,
+  password: DATABASE_PASSWORD
+}
+
+DATABASE_NON_DEFAULT_TABLESPACE = config["database"]["non_default_tablespace"] || ENV["DATABASE_NON_DEFAULT_TABLESPACE"] || "SYSTEM"
+
+# set default time zone in TZ environment variable
+# which will be used to set session time zone
+ENV["TZ"] ||= config["timezone"] || "Europe/Riga"
+
+ActiveRecord::Base.logger = ActiveSupport::Logger.new("debug.log", 0, 100 * 1024 * 1024)
