@@ -1,6 +1,6 @@
 <div class="order-container">
   <h2>社販受注 <%= @is_edit ? "修正画面" : "登録画面" %></h2>
- <!-- ★ 更新・登録成功メッセージ表示エリア -->
+  <!-- ★ 更新・登録成功メッセージ表示エリア -->
   <% if flash[:order_success] %>
     <div class="alert alert-success" style="background-color: #d4edda; color: #155724; padding: 12px 16px; margin-bottom: 20px; border: 1px solid #c3e6cb; border-radius: 4px; font-weight: bold;">
       <%= flash[:order_success] %>
@@ -12,7 +12,7 @@
   <% end %>
   <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:SHAINNAME) %></p>
 
-  <% if @is_edit and @is_completed = false %>
+  <% if @is_edit and !@is_completed %>
     <div class="alert alert-info" style="background-color: #e8f4f8; color: #1d6f8a; border-color: #bce8f1; padding: 10px; margin-bottom: 15px;">
       ※ 本日の受注データが既に存在します。内容を変更して「更新する」を押すと上書き保存されます。
     </div>
@@ -81,8 +81,16 @@
       <%= f.submit (@is_edit ? "受注内容を更新する" : "受注を確定する"), class: "btn-primary" %>
     </div>
   <% end %>
+<!-- これはHTMLコメントです。二重化すると両方コメントとなる
+<%# これはERBコメントです。ブラウザのHTMLソースには表示されません
+  <p style="color: red; font-weight: bold;">
+    デバッグ表示: <%= @is_completed.inspect %>
+  </p>
+%>
+-->
   <!-- ★ 登録完了時に表示されるログアウトボタン -->
   <% if @is_completed %>
+    <p ></p>
     <%= link_to "ログアウトする", logout_path, data: { turbo_method: :delete }, class: "btn-logout", style: "background-color: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %>
   <% end %>
 </div>
@@ -245,7 +253,7 @@ function calculateRowAndTotal() {
   let totalSum = 0;
   const rows = document.querySelectorAll('#order-table tbody tr');
     // console.log({ code });
-    console.log("calculateRowAndTotal Begin");
+  //  console.log("calculateRowAndTotal Begin");
     let idx = 0;
   rows.forEach(row => {
     const price = parseFloat(row.querySelector('.product-price').dataset.price) || 0;
@@ -253,7 +261,7 @@ function calculateRowAndTotal() {
     const quantity = parseInt(quantityInput ? quantityInput.value : 0, 10) || 0;
 
     idx++;
-    alert("calculateRowAndTotal idx= " + idx);
+    // alert("calculateRowAndTotal idx= " + idx);
     // if (idx = 2) {
     //   debugger;
     // }
