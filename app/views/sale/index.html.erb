@@ -17,7 +17,7 @@
       ※ 本日の受注データが既に存在します。内容を変更して「更新する」を押すと上書き保存されます。
     </div>
   <% end %>
-  <%= form_with(url: orders_path, local: true, data: { turbo: false }, id: "order-form") do |f| %>
+  <%= form_with(url: sale_path, local: true, data: { turbo: false }, id: "order-form") do |f| %>
     <input type="hidden" name="is_edit" value="<%= @is_edit %>">
     <table class="order-table" id="order-table">
       <thead>
@@ -35,15 +35,34 @@
         <% @inputdtls.each_with_index do |item, index| %>
           <tr class="item-row">
             <td class="row-number"><%= index + 1 %></td>
+            <!-- 1. 品番・カラー・サイズエリア -->
             <td>
-              <input type="text" 
-                     name="items[][item_cd]" 
-                     value="<%= item[:item_cd] %>" 
-                     maxlength="6" 
-                     placeholder="123456" 
-                     class="input-item-cd" 
-                     oninput="handleCodeInput(this)"
-                     onblur="fetchProductInfo(this)">
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <!-- 品番（半角数字・英数等） -->
+                <input type="text" 
+                      name="items[][item_cd]" 
+                      value="<%= item[:item_cd] %>" 
+                      placeholder="品番" 
+                      class="input-item_cd" 
+                      style="width: 80px;"
+                      oninput="handleCodeInput(this)"
+                      onblur="onHinbanBlur(this)">
+                <!-- カラー（初期は非活性、品番入力後に設定） -->
+                <select name="items[][color]" 
+                        class="select-color" 
+                        onchange="onColorChange(this)" 
+                        disabled>
+                  <option value="">カラー</option>
+                </select>
+
+                <!-- サイズ（初期は非活性、カラー選択後に設定） -->
+                <select name="items[][size]" 
+                        class="select-size" 
+                        onchange="onSizeChange(this)" 
+                        disabled>
+                  <option value="">サイズ</option>
+                </select>
+              </div>
             </td>
             <!-- 商品名・単価の表示セル -->
             <td class="product-name"><%= item[:item_name] %></td>
@@ -96,85 +115,152 @@
 </div>
 
 <script>
+  // 全行のカラー・サイズマップデータを一時保持するオブジェクト
+  const rowProductDataMap = new WeakMap();
+
   // 画面読み込み完了時に自動計算を実行
   document.addEventListener('turbo:load', function() {
     calculateRowAndTotal();
   });
+  // ① 品番入力時（フォーカスが外れた時）
+  async function onHinbanBlur(inputEl) {
+    const row = inputEl.closest('tr');
+    const hinban = inputEl.value.trim();
+
+    const colorSelect = row.querySelector('.select-color');
+    const sizeSelect = row.querySelector('.select-size');
+    const nameEl = row.querySelector('.product-name');
+    const priceEl = row.querySelector('.product-price');
+
+    // 初期化ヘルパー
+    resetRow(row);
+
+    // console.log({ hinban });
+    // debugger;
+    if (!hinban) return;
+
+    nameEl.textContent = '検索中...';
+
+    try {
+      const response = await fetch(`/products/search_by_hinban?hinban=${encodeURIComponent(hinban)}`);
+      const data = await response.json();
+
+      if (data.found) {
+        // ★ パターン①：カラー・サイズ指定なし（1品番1商品）の場合
+        if (data.is_single) {
+          // 単価・金額を即座にセット
+          priceEl.textContent = Number(data.price).toLocaleString();
+          priceEl.dataset.price = data.price;
+
+          // カラー・サイズ欄は「指定なし」で無効化
+          colorSelect.innerHTML = '<option value=" ">-</option>';
+          colorSelect.disabled = false;
+          sizeSelect.innerHTML = '<option value=" ">-</option>';
+          sizeSelect.disabled = false;
+
+        // ★ パターン②：カラー・サイズの選択が必要な場合
+        } else {
+          rowProductDataMap.set(row, data.color_size_map);
+
+          colorSelect.innerHTML = '<option value=" ">カラー</option>';
+          data.colors.forEach(color => {
+            const opt = document.createElement('option');
+            opt.value = color;
+            opt.textContent = color;
+            colorSelect.appendChild(opt);
+          });
+          colorSelect.disabled = false;
+        }
+
+      } else {
+        nameEl.textContent = data.message;
+        nameEl.style.color = '#d9534f';
+      }
+    } catch (error) {
+      console.error('品番検索エラー:', error);
+      nameEl.textContent = '通信エラー';
+    }
+  }
+
+  // ② カラー選択時
+  function onColorChange(colorSelect) {
+    const row = colorSelect.closest('tr');
+    const selectedColor = colorSelect.value;
+    const sizeSelect = row.querySelector('.select-size');
+    const priceEl = row.querySelector('.product-price');
+
+    // サイズ・単価を一旦リセット
+    sizeSelect.innerHTML = '<option value="">サイズ</option>';
+    sizeSelect.disabled = true;
+    priceEl.textContent = '0';
+    priceEl.dataset.price = '0';
+    calculateRowAndTotal();
+
+    if (!selectedColor) return;
+
+    const colorSizeMap = rowProductDataMap.get(row);
+    if (!colorSizeMap || !colorSizeMap[selectedColor]) return;
+
+    // 選択されたカラーに対応するサイズ候補を設定
+    const sizeList = colorSizeMap[selectedColor];
+    sizeList.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.size;
+      opt.textContent = item.size;
+      opt.dataset.price = item.price; // 選択時に単価が取れるようデータ属性に忍ばせる
+      sizeSelect.appendChild(opt);
+    });
+
+    sizeSelect.disabled = false;
+  }
+
+  // ③ サイズ決定時（ここで単価・金額確定）
+  function onSizeChange(sizeSelect) {
+    const row = sizeSelect.closest('tr');
+    const selectedOption = sizeSelect.options[sizeSelect.selectedIndex];
+    const priceEl = row.querySelector('.product-price');
+
+    if (selectedOption && selectedOption.value !== "") {
+      // 選択されたサイズの単価を取得
+      const price = parseInt(selectedOption.dataset.price, 10) || 0;
+      priceEl.textContent = price.toLocaleString();
+      priceEl.dataset.price = price; // ★計算用に data-price を更新！
+    } else {
+      priceEl.textContent = '0';
+      priceEl.dataset.price = '0';
+    }
+
+    // 行小計および総合計の自動再計算
+    calculateRowAndTotal();
+  }
+
+    // 表示リセット用の関数
+  function resetRow(row) {
+    const colorSelect = row.querySelector('.select-color');
+    const sizeSelect = row.querySelector('.select-size');
+    const priceEl = row.querySelector('.product-price');
+    
+    colorSelect.innerHTML = '<option value="">カラー</option>';
+    colorSelect.disabled = true;
+    
+    sizeSelect.innerHTML = '<option value="">サイズ</option>';
+    sizeSelect.disabled = true;
+
+    priceEl.textContent = '0';
+    priceEl.dataset.price = '0';
+    
+    calculateRowAndTotal();
+  }
 
   // 入力中に5,6桁に達した時点で自動取得
   function handleCodeInput(input) {
     const code = input.value.trim();
 
     if (code.length === 5 || code.length === 6) {
-      fetchProductInfo(input);
+      // fetchProductInfo(input);
+      onHinbanBlur(input);
     }
   }
-
-// 商品マスタから単価を取得する関数
-async function fetchProductInfo(input) {
-  const code = input.value.trim();
-  const row = input.closest('tr');
-  const nameEl = row.querySelector('.product-name');
-  const priceEl = row.querySelector('.product-price');
-
-  // 5〜6桁以外の場合はクリアして計算
-  if (code.length < 5 || code.length > 6) {
-    if (nameEl) {
-      nameEl.textContent = '-';
-      nameEl.style.color = '#666';
-    }
-    if (priceEl) {
-      priceEl.textContent = '-';
-      priceEl.dataset.price = "0"; // ★ data-price を 0 にリセット
-    }
-    calculateRowAndTotal(); // ★ 再計算
-    return;
-  }
-
-  // 読み込み中表示
-  if (nameEl) {
-    nameEl.textContent = '取得中...';
-    nameEl.style.color = '#999';
-  }
-
-  try {
-    const response = await fetch(`/products/search?code=${encodeURIComponent(code)}`);
-    const data = await response.json();
-
-    if (data.found) {
-      if (nameEl) {
-        nameEl.textContent = data.name;
-        nameEl.style.color = '#333';
-      }
-      if (priceEl) {
-        priceEl.textContent = Number(data.price).toLocaleString(); // 見た目をカンマ区切りに
-        priceEl.dataset.price = data.price; // ★ 【重要】計算用 data-price 属性に数値をセット！
-      }
-    } else {
-      if (nameEl) {
-        nameEl.textContent = data.message; // 「該当する商品がありません」
-        nameEl.style.color = '#d9534f';     // 赤字警告
-      }
-      if (priceEl) {
-        priceEl.textContent = '-';
-        priceEl.dataset.price = "0"; // ★ 該当なし時は 0 にリセット
-      }
-    }
-  } catch (error) {
-    console.error('商品情報の取得エラー:', error);
-    if (nameEl) {
-      nameEl.textContent = '通信エラー';
-      nameEl.style.color = '#d9534f';
-    }
-    if (priceEl) {
-      priceEl.textContent = '-';
-      priceEl.dataset.price = "0"; // ★ エラー時も 0 にリセット
-    }
-  } finally {
-    // ★ 商品取得完了後、行小計と総合計を即座に自動計算
-    calculateRowAndTotal();
-  }
-}
 
   // 行追加
   function addRow() {
@@ -185,13 +271,27 @@ async function fetchProductInfo(input) {
     newRow.innerHTML = `
       <td class="row-number">${rowCount + 1}</td>
       <td>
-        <input type="text" 
-               name="items[][item_cd]" 
-               maxlength="6" 
-               placeholder="123456" 
-               class="input-item-cd" 
-               oninput="handleCodeInput(this)"
-               onblur="fetchProductInfo(this)">
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <input type="text" 
+                name="items[][item_cd]" 
+                maxlength="6" 
+                placeholder="123456" 
+                class="input-item-cd" 
+                oninput="handleCodeInput(this)"
+                onblur="onHinbanBlur(this)">
+          <select name="items[][color]"
+              class="select-color"
+              onchange="onColorChange(this)"
+              disabled>
+            <option value="">カラー</option>
+          </select>
+          <select name="items[][size]"
+              class="select-size"
+              onchange="onSizeChange(this)"
+              disabled>
+            <option value="">サイズ</option>
+          </select>
+        </div>
       </td>
       <td class="product-name-cell"><span class="product-name" style="color: #666;">-</span></td>
       <td class="product-price" data-price="0" style="text-align: right;">0</td>
@@ -218,6 +318,7 @@ async function fetchProductInfo(input) {
     if (tbody.getElementsByClassName('item-row').length > 1) {
       button.closest('tr').remove();
       renumberRows();
+      calculateRowAndTotal();
     } else {
       alert('明細は1行以上必要です。');
     }
@@ -234,6 +335,9 @@ async function fetchProductInfo(input) {
 document.getElementById('order-form').addEventListener('submit', function(e) {
   const codeInputs = document.querySelectorAll('.input-item-cd');
   let hasValidInput = false;
+
+  ebugger;
+  alert("明細入力チェックを通過しました！");
 
   codeInputs.forEach(input => {
     if (input.value.trim() !== '') {

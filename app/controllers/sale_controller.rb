@@ -14,6 +14,10 @@ class SaleController < ApplicationController
       @inputdtls = @shahanhdr.shahandtls.order(:juchugyo).map do |dtl|
         {
           item_cd: dtl.hinban,
+          color: dtl.colorcd,      # ★ 送信された値を保持
+          size: dtl.sizecd,        # ★ 送信された値を保持
+          colors: nil,    # ★ カラー選択肢群
+          sizes: nil,      # ★ サイズ選択肢群
           quantity: dtl.juchusu,
           item_name: dtl.shohin&.hinmeir,
           price: dtl.salebaika,
@@ -24,7 +28,18 @@ class SaleController < ApplicationController
       @is_edit = false
       @shahanhdr = Mpls::Shahanhdr.new
       # 初期表示用に空行を3行用意
-      @inputdtls = Array.new(3) { { item_cd: "", quantity: 1, item_name: "", price: 0, subtotal: 0 } }
+      @inputdtls = Array.new(3) {
+          { item_cd: "",
+            color: "",      # ★ 送信された値を保持
+            size: "",        # ★ 送信された値を保持
+            colors: nil,    # ★ カラー選択肢群
+            sizes: nil,      # ★ サイズ選択肢群
+            quantity: 1,
+            item_name: "",
+            price: 0,
+            subtotal: 0
+            }
+        }
     end
   end
 
@@ -33,11 +48,11 @@ class SaleController < ApplicationController
     # params[:items] = [ { "item_cd" => "123456", "quantity" => "2" }, ... ]
     items_params = params[:items] || []
     valid_items = items_params.reject { |item| item[:item_cd].blank? }
-
+p items_params.size, valid_items.size
     if valid_items.empty?
       flash.now[:alert] = "明細を1件以上入力してください。"
       @inputdtls = items_params
-      return render :new, status: :unprocessable_entity
+      return render :index, status: :unprocessable_entity
     end
 
     # ② 明細データ確認（各行ループ）
@@ -50,7 +65,7 @@ class SaleController < ApplicationController
       if not code.match?(/\A\d{5,6}\z/)
         flash.now[:alert] = gyo.to_s + "行目 商品コードは半角数字5桁または6桁で入力して下さい。"
         @inputdtls = items_params
-        return render :new, status: :unprocessable_entity
+        return render :index, status: :unprocessable_entity
       end
       # # 商品情報をマスターから取得  rescueがあるから不要
       # product = Ff2::Shohin.find_by!(HINBAN: code, COLORCD: " ", SIZECD: " ")
@@ -101,10 +116,13 @@ class SaleController < ApplicationController
       # ② 明細データ作成（各行ループ）
       valid_items.each_with_index do |item_data, index|
         code = item_data[:item_cd].to_s.strip
+        color = item_data[:color].presence || " "
+        size = item_data[:size].presence || " "
         quantity = item_data[:quantity].to_i
+        p "hinban=" + code, color, size
 
         # 最新の商品情報をマスターから取得
-        product = Ff2::Shohin.find_by!(HINBAN: code, COLORCD: " ", SIZECD: " ")
+        product = Ff2::Shohin.find_by!(HINBAN: code, COLORCD: color, SIZECD: size)
         if product
           item_data[:item_name] = product.hinmeir
           item_data[:price] = product.baika
@@ -116,7 +134,9 @@ class SaleController < ApplicationController
           shaincd: shaincd,
           juchuno: maxjuchuno,
           juchugyo: index + 1,
-          hinban: product.hinban,
+          hinban: code,
+          colorcd: color,
+          sizecd: size,
           salebaika: product.baika,
           juchusu: quantity
         )
@@ -135,21 +155,21 @@ class SaleController < ApplicationController
     # 入力内容を保持したまま画面を再描画
     @inputdtls = valid_items
     # rebuild_inputdtls(valid_items)
-    render :new
+    render :index
 
   rescue ActiveRecord::RecordNotFound => e
     Rails.logger.debug("【DEBUG】rescue1にキャッチされました: #{e.message}")
     # 商品コードが存在しなかった場合のエラーハンドリング
     flash.now[:alert] = "存在しない商品コードが含まれています。"
     @inputdtls = items_params
-    render :new, status: :unprocessable_entity
+    render :index, status: :unprocessable_entity
 
   rescue ActiveRecord::RecordInvalid => e
     Rails.logger.debug("【DEBUG】rescue2にキャッチされました: #{e.message}")
     # バリデーションエラー時
     flash.now[:alert] = "入力内容に不備があります: #{e.message}"
     @inputdtls = items_params
-    render :new, status: :unprocessable_entity
+    render :index, status: :unprocessable_entity
 
   rescue => e
     Rails.logger.debug("【DEBUG】rescue3にキャッチされました: #{e.message}")
@@ -157,6 +177,6 @@ class SaleController < ApplicationController
     # flash.now[:alert] = "システムエラーが発生しました。登録をやり直してください。"
     flash.now[:alert] = e.message
     @inputdtls = items_params
-    render :new, status: :unprocessable_entity
+    render :index, status: :unprocessable_entity
   end
 end

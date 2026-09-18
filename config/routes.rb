@@ -8,8 +8,10 @@ Rails.application.routes.draw do
 
   get  "/orders/new", to: "orders#new", as: "new_order"
   post "/orders",     to: "orders#create", as: "orders"
+  post "/sale",     to: "sale#create", as: "sale"
 
   get "/products/search", to: "products#search"
+  get "/products/search_by_hinban", to: "products#search_by_hinban"
 
   root to: "login#new"
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
