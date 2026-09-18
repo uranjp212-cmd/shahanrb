@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  get "/sale", to: "sale#index", as: "index_sale"
   # root "login#new"
   # get "/", to: "login#new"
   get "/login", to: "login#new"

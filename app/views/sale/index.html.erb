@@ -1,0 +1,292 @@
+<div class="order-container">
+  <h2>社販受注 <%= @is_edit ? "修正画面" : "登録画面" %></h2>
+  <!-- ★ 更新・登録成功メッセージ表示エリア -->
+  <% if flash[:order_success] %>
+    <div class="alert alert-success" style="background-color: #d4edda; color: #155724; padding: 12px 16px; margin-bottom: 20px; border: 1px solid #c3e6cb; border-radius: 4px; font-weight: bold;">
+      <%= flash[:order_success] %>
+    </div>
+  <% elsif flash[:alert] %>
+    <div class="alert alert-danger" style="background-color: #f8d7da; color: #721c24; padding: 12px 16px; margin-bottom: 20px; border: 1px solid #f5c6cb; border-radius: 4px; font-weight: bold;">
+      <%= flash[:alert] %>
+    </div>
+  <% end %>
+  <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:SHAINNAME) %></p>
+
+  <% if @is_edit and !@is_completed %>
+    <div class="alert alert-info" style="background-color: #e8f4f8; color: #1d6f8a; border-color: #bce8f1; padding: 10px; margin-bottom: 15px;">
+      ※ 本日の受注データが既に存在します。内容を変更して「更新する」を押すと上書き保存されます。
+    </div>
+  <% end %>
+  <%= form_with(url: orders_path, local: true, data: { turbo: false }, id: "order-form") do |f| %>
+    <input type="hidden" name="is_edit" value="<%= @is_edit %>">
+    <table class="order-table" id="order-table">
+      <thead>
+        <tr>
+          <th style="width: 50px;">行</th>
+          <th style="width: 140px;">商品コード</th>
+          <th style="width: 300px;">商品名</th>
+          <th style="width: 100px;">単価</th>
+          <th>数量</th>
+          <th>金額</th>
+          <th style="width: 70px;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="order-items-tbody">
+        <% @inputdtls.each_with_index do |item, index| %>
+          <tr class="item-row">
+            <td class="row-number"><%= index + 1 %></td>
+            <td>
+              <input type="text" 
+                     name="items[][item_cd]" 
+                     value="<%= item[:item_cd] %>" 
+                     maxlength="6" 
+                     placeholder="123456" 
+                     class="input-item-cd" 
+                     oninput="handleCodeInput(this)"
+                     onblur="fetchProductInfo(this)">
+            </td>
+            <!-- 商品名・単価の表示セル -->
+            <td class="product-name"><%= item[:item_name] %></td>
+            <td class="product-price" data-price="<%= item[:price] || 0 %>">
+              <%= (item[:price] || 0) %>
+            </td>
+            <td>
+              <input type="number" 
+                      name="items[][quantity]" 
+                      value="<%= item[:quantity] || 1 %>" 
+                      min="1" 
+                      class="item-quantity-input"
+                      oninput="calculateRowAndTotal()">
+            </td>
+            <td class="item-subtotal">
+              <%= (item[:subtotal] || 0) %>
+            </td>
+            <td>
+              <button type="button" class="btn-remove" onclick="removeRow(this)">削除</button>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <div class="total-container" style="text-align: right; margin: 15px 0; font-size: 1.2em; font-weight: bold;">
+      合計金額: <span id="total-amount">0</span> 円
+    </div>
+
+    <div class="table-actions">
+      <button type="button" id="btn-add-row" class="btn-secondary" onclick="addRow()">+ 行を追加する</button>
+    </div>
+
+    <div class="form-actions">
+      <%= f.submit (@is_edit ? "受注内容を更新する" : "受注を確定する"), class: "btn-primary" %>
+    </div>
+  <% end %>
+<!-- これはHTMLコメントです。二重化すると両方コメントとなる
+<%# これはERBコメントです。ブラウザのHTMLソースには表示されません
+  <p style="color: red; font-weight: bold;">
+    デバッグ表示: <%= @is_completed.inspect %>
+  </p>
+%>
+-->
+  <!-- ★ 登録完了時に表示されるログアウトボタン -->
+  <% if @is_completed %>
+    <p ></p>
+    <%= link_to "ログアウトする", logout_path, data: { turbo_method: :delete }, class: "btn-logout", style: "background-color: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %>
+  <% end %>
+</div>
+
+<script>
+  // 画面読み込み完了時に自動計算を実行
+  document.addEventListener('turbo:load', function() {
+    calculateRowAndTotal();
+  });
+
+  // 入力中に5,6桁に達した時点で自動取得
+  function handleCodeInput(input) {
+    const code = input.value.trim();
+
+    if (code.length === 5 || code.length === 6) {
+      fetchProductInfo(input);
+    }
+  }
+
+// 商品マスタから単価を取得する関数
+async function fetchProductInfo(input) {
+  const code = input.value.trim();
+  const row = input.closest('tr');
+  const nameEl = row.querySelector('.product-name');
+  const priceEl = row.querySelector('.product-price');
+
+  // 5〜6桁以外の場合はクリアして計算
+  if (code.length < 5 || code.length > 6) {
+    if (nameEl) {
+      nameEl.textContent = '-';
+      nameEl.style.color = '#666';
+    }
+    if (priceEl) {
+      priceEl.textContent = '-';
+      priceEl.dataset.price = "0"; // ★ data-price を 0 にリセット
+    }
+    calculateRowAndTotal(); // ★ 再計算
+    return;
+  }
+
+  // 読み込み中表示
+  if (nameEl) {
+    nameEl.textContent = '取得中...';
+    nameEl.style.color = '#999';
+  }
+
+  try {
+    const response = await fetch(`/products/search?code=${encodeURIComponent(code)}`);
+    const data = await response.json();
+
+    if (data.found) {
+      if (nameEl) {
+        nameEl.textContent = data.name;
+        nameEl.style.color = '#333';
+      }
+      if (priceEl) {
+        priceEl.textContent = Number(data.price).toLocaleString(); // 見た目をカンマ区切りに
+        priceEl.dataset.price = data.price; // ★ 【重要】計算用 data-price 属性に数値をセット！
+      }
+    } else {
+      if (nameEl) {
+        nameEl.textContent = data.message; // 「該当する商品がありません」
+        nameEl.style.color = '#d9534f';     // 赤字警告
+      }
+      if (priceEl) {
+        priceEl.textContent = '-';
+        priceEl.dataset.price = "0"; // ★ 該当なし時は 0 にリセット
+      }
+    }
+  } catch (error) {
+    console.error('商品情報の取得エラー:', error);
+    if (nameEl) {
+      nameEl.textContent = '通信エラー';
+      nameEl.style.color = '#d9534f';
+    }
+    if (priceEl) {
+      priceEl.textContent = '-';
+      priceEl.dataset.price = "0"; // ★ エラー時も 0 にリセット
+    }
+  } finally {
+    // ★ 商品取得完了後、行小計と総合計を即座に自動計算
+    calculateRowAndTotal();
+  }
+}
+
+  // 行追加
+  function addRow() {
+    const tbody = document.getElementById('order-items-tbody');
+    const rowCount = tbody.getElementsByClassName('item-row').length;
+    const newRow = document.createElement('tr');
+    newRow.className = 'item-row';
+    newRow.innerHTML = `
+      <td class="row-number">${rowCount + 1}</td>
+      <td>
+        <input type="text" 
+               name="items[][item_cd]" 
+               maxlength="6" 
+               placeholder="123456" 
+               class="input-item-cd" 
+               oninput="handleCodeInput(this)"
+               onblur="fetchProductInfo(this)">
+      </td>
+      <td class="product-name-cell"><span class="product-name" style="color: #666;">-</span></td>
+      <td class="product-price" data-price="0" style="text-align: right;">0</td>
+      <td>
+        <input type="number" 
+                name="items[][quantity]" 
+                value="1" 
+                min="1" 
+                class="item-quantity-input"
+                oninput="calculateRowAndTotal()">
+      </td>
+      <td class="item-subtotal">0</td>
+      <td>
+        <button type="button" class="btn-remove" onclick="removeRow(this)">削除</button>
+      </td>
+    `;
+    tbody.appendChild(newRow);
+    renumberRows();
+  }
+
+  // 行削除
+  function removeRow(button) {
+    const tbody = document.getElementById('order-items-tbody');
+    if (tbody.getElementsByClassName('item-row').length > 1) {
+      button.closest('tr').remove();
+      renumberRows();
+    } else {
+      alert('明細は1行以上必要です。');
+    }
+  }
+
+  // 行番号再振り直し
+  function renumberRows() {
+    const rows = document.querySelectorAll('#order-items-tbody .item-row');
+    rows.forEach((row, index) => {
+      row.querySelector('.row-number').textContent = index + 1;
+    });
+  }
+
+document.getElementById('order-form').addEventListener('submit', function(e) {
+  const codeInputs = document.querySelectorAll('.input-item-cd');
+  let hasValidInput = false;
+
+  codeInputs.forEach(input => {
+    if (input.value.trim() !== '') {
+      hasValidInput = true;
+    }
+  });
+
+  // 1件も商品コードが入力されていない場合は送信をストップ
+  if (!hasValidInput) {
+    e.preventDefault();
+    alert('明細を1件以上入力してください。');
+  }
+});
+
+// 明細金額および合計金額を計算する関数
+function calculateRowAndTotal() {
+  let totalSum = 0;
+  const rows = document.querySelectorAll('#order-table tbody tr');
+    // console.log({ code });
+  //  console.log("calculateRowAndTotal Begin");
+    let idx = 0;
+  rows.forEach(row => {
+    const price = parseFloat(row.querySelector('.product-price').dataset.price) || 0;
+    const quantityInput = row.querySelector('.item-quantity-input');
+    const quantity = parseInt(quantityInput ? quantityInput.value : 0, 10) || 0;
+
+    idx++;
+    // alert("calculateRowAndTotal idx= " + idx);
+    // if (idx = 2) {
+    //   debugger;
+    // }
+    // 明細金額の計算
+    const subtotal = price * quantity;
+    const subtotalElement = row.querySelector('.item-subtotal');
+    if (subtotalElement) {
+      subtotalElement.textContent = subtotal.toLocaleString();
+    }
+
+    // 総合計の加算
+    totalSum += subtotal;
+  });
+
+  // 総合計金額の表示更新
+  const totalAmountElement = document.getElementById('total-amount');
+  if (totalAmountElement) {
+    totalAmountElement.textContent = totalSum.toLocaleString();
+  }
+}
+
+// 数量入力時に計算を実行
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('item-quantity-input')) {
+    calculateRowAndTotal();
+  }
+});
+</script>
