@@ -10,7 +10,7 @@
       <%= flash[:alert] %>
     </div>
   <% end %>
-  <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:SHAINNAME) %></p>
+  <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:shainmei) %></p>
 
   <% if @is_edit and !@is_completed %>
     <div class="alert alert-info" style="background-color: #e8f4f8; color: #1d6f8a; border-color: #bce8f1; padding: 10px; margin-bottom: 15px;">
@@ -45,22 +45,30 @@
                       placeholder="品番" 
                       class="input-item_cd" 
                       style="width: 80px;"
+                      readonly="<%= @val_readonly %>" 
                       oninput="handleCodeInput(this)"
                       onblur="onHinbanBlur(this)">
                 <!-- カラー（初期は非活性、品番入力後に設定） -->
-                <select name="items[][color]" 
-                        class="select-color" 
-                        onchange="onColorChange(this)" 
-                        disabled>
-                  <option value="">カラー</option>
-                </select>
-
+                <% if @is_completed %>
+                  <td name="items[][color]"
+                      class="select-color"
+                      value="<%= item[:color] %>"></td>
+                <% else %>
+                  <select name="items[][color]" 
+                          class="select-color" 
+                          value="<%= item[:color] %>" 
+                          onchange="onColorChange(this)" 
+                          readonly = true>
+                    <%# <option value="">カラー</option> %>
+                  </select>
+                <% end %>
                 <!-- サイズ（初期は非活性、カラー選択後に設定） -->
                 <select name="items[][size]" 
                         class="select-size" 
+                        value="<%= item[:size] %>" 
                         onchange="onSizeChange(this)" 
-                        disabled>
-                  <option value="">サイズ</option>
+                        readonly = true>
+                  <%# <option value="">サイズ</option> %>
                 </select>
               </div>
             </td>
@@ -75,13 +83,17 @@
                       value="<%= item[:quantity] || 1 %>" 
                       min="1" 
                       class="item-quantity-input"
+                      <%= "readonly=true" if @is_completed %> 
                       oninput="calculateRowAndTotal()">
             </td>
             <td class="item-subtotal">
               <%= (item[:subtotal] || 0) %>
             </td>
             <td>
-              <button type="button" class="btn-remove" onclick="removeRow(this)">削除</button>
+              <button type="button"
+                      class="btn-remove"
+                      <%= "disabled" if @is_completed %> 
+                      onclick="removeRow(this)">削除</button>
             </td>
           </tr>
         <% end %>
@@ -92,13 +104,14 @@
       合計金額: <span id="total-amount">0</span> 円
     </div>
 
-    <div class="table-actions">
-      <button type="button" id="btn-add-row" class="btn-secondary" onclick="addRow()">+ 行を追加する</button>
-    </div>
-
-    <div class="form-actions">
-      <%= f.submit (@is_edit ? "受注内容を更新する" : "受注を確定する"), class: "btn-primary" %>
-    </div>
+    <% if !@is_completed %>
+      <div class="table-actions">
+        <button type="button" id="btn-add-row" class="btn-secondary" onclick="addRow()">+ 行を追加する</button>
+      </div>
+      <div class="form-actions">
+        <%= f.submit (@is_edit ? "受注内容を更新する" : "受注を確定する"), class: "btn-primary" %>
+      </div>
+    <% end %>
   <% end %>
 <!-- これはHTMLコメントです。二重化すると両方コメントとなる
 <%# これはERBコメントです。ブラウザのHTMLソースには表示されません
@@ -117,6 +130,8 @@
 <script>
   // 全行のカラー・サイズマップデータを一時保持するオブジェクト
   const rowProductDataMap = new WeakMap();
+  // 品番がreadonly
+  let codereadlnly = false;
 
   // 画面読み込み完了時に自動計算を実行
   document.addEventListener('turbo:load', function() {
@@ -132,44 +147,55 @@
     const nameEl = row.querySelector('.product-name');
     const priceEl = row.querySelector('.product-price');
 
+    // ★ 品番が readonly の場合は処理を実行せずに終了
+    if (inputEl.readOnly) {
+      codereadlnly = true;
+      return;
+      }
     // 初期化ヘルパー
     resetRow(row);
 
     // console.log({ hinban });
     // debugger;
     if (!hinban) return;
-
     nameEl.textContent = '検索中...';
 
     try {
       const response = await fetch(`/products/search_by_hinban?hinban=${encodeURIComponent(hinban)}`);
       const data = await response.json();
 
+      // alert("onHinban STEP01 " + hinban)
       if (data.found) {
+        nameEl.textContent = data.name;
+        nameEl.style.color = '#333';
+        // 検索後は品番修正不可
+        inputEl.readOnly = true;
         // ★ パターン①：カラー・サイズ指定なし（1品番1商品）の場合
+      // alert("onHinban STEP02 " + data.is_single)
         if (data.is_single) {
           // 単価・金額を即座にセット
           priceEl.textContent = Number(data.price).toLocaleString();
           priceEl.dataset.price = data.price;
+          calculateRowAndTotal();
 
           // カラー・サイズ欄は「指定なし」で無効化
-          colorSelect.innerHTML = '<option value=" ">-</option>';
-          colorSelect.disabled = false;
-          sizeSelect.innerHTML = '<option value=" ">-</option>';
-          sizeSelect.disabled = false;
+          colorSelect.innerHTML = '<option value=" "> </option>';
+          colorSelect.readOnly = true;
+          sizeSelect.innerHTML = '<option value=" "> </option>';
+          sizeSelect.readOnly = true;
 
         // ★ パターン②：カラー・サイズの選択が必要な場合
         } else {
           rowProductDataMap.set(row, data.color_size_map);
 
-          colorSelect.innerHTML = '<option value=" ">カラー</option>';
+          colorSelect.innerHTML = '<option value=" ">-</option>';
           data.colors.forEach(color => {
             const opt = document.createElement('option');
             opt.value = color;
             opt.textContent = color;
             colorSelect.appendChild(opt);
           });
-          colorSelect.disabled = false;
+          colorSelect.readOnly = false;
         }
 
       } else {
@@ -189,9 +215,10 @@
     const sizeSelect = row.querySelector('.select-size');
     const priceEl = row.querySelector('.product-price');
 
+    // if (codereadlnly) return;
     // サイズ・単価を一旦リセット
-    sizeSelect.innerHTML = '<option value="">サイズ</option>';
-    sizeSelect.disabled = true;
+    sizeSelect.innerHTML = '<option value="">-</option>';
+    sizeSelect.readOnly = true;
     priceEl.textContent = '0';
     priceEl.dataset.price = '0';
     calculateRowAndTotal();
@@ -220,11 +247,13 @@
     const selectedOption = sizeSelect.options[sizeSelect.selectedIndex];
     const priceEl = row.querySelector('.product-price');
 
+    if (codereadlnly) return;
     if (selectedOption && selectedOption.value !== "") {
       // 選択されたサイズの単価を取得
       const price = parseInt(selectedOption.dataset.price, 10) || 0;
       priceEl.textContent = price.toLocaleString();
       priceEl.dataset.price = price; // ★計算用に data-price を更新！
+      calculateRowAndTotal();
     } else {
       priceEl.textContent = '0';
       priceEl.dataset.price = '0';
@@ -239,12 +268,13 @@
     const colorSelect = row.querySelector('.select-color');
     const sizeSelect = row.querySelector('.select-size');
     const priceEl = row.querySelector('.product-price');
+    // alert("resetRow In");
     
-    colorSelect.innerHTML = '<option value="">カラー</option>';
-    colorSelect.disabled = true;
+    colorSelect.innerHTML = '<option value="">-</option>';
+    colorSelect.readonly = true;
     
-    sizeSelect.innerHTML = '<option value="">サイズ</option>';
-    sizeSelect.disabled = true;
+    sizeSelect.innerHTML = '<option value="">-</option>';
+    sizeSelect.readonly = true;
 
     priceEl.textContent = '0';
     priceEl.dataset.price = '0';
@@ -282,14 +312,14 @@
           <select name="items[][color]"
               class="select-color"
               onchange="onColorChange(this)"
-              disabled>
-            <option value="">カラー</option>
+              readonly = true>
+            <option value="">-</option>
           </select>
           <select name="items[][size]"
               class="select-size"
               onchange="onSizeChange(this)"
-              disabled>
-            <option value="">サイズ</option>
+              readonly = true>
+            <option value="">-</option>
           </select>
         </div>
       </td>
@@ -357,7 +387,7 @@ function calculateRowAndTotal() {
   let totalSum = 0;
   const rows = document.querySelectorAll('#order-table tbody tr');
     // console.log({ code });
-  //  console.log("calculateRowAndTotal Begin");
+    //  console.log("calculateRowAndTotal Begin");
     let idx = 0;
   rows.forEach(row => {
     const price = parseFloat(row.querySelector('.product-price').dataset.price) || 0;
@@ -365,7 +395,7 @@ function calculateRowAndTotal() {
     const quantity = parseInt(quantityInput ? quantityInput.value : 0, 10) || 0;
 
     idx++;
-    // alert("calculateRowAndTotal idx= " + idx);
+    alert("calculateRowAndTotal idx= " + idx);
     // if (idx = 2) {
     //   debugger;
     // }

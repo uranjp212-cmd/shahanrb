@@ -2,6 +2,7 @@ class SaleController < ApplicationController
   before_action :require_shain_login # 社員ログイン必須チェック
   def index
     shaincd = current_shain.shaincd
+    @val_readonly = false
     maxjuchuno = Mpls::Shahanhdr.where(shaincd: shaincd, pickflg: 0).maximum(:juchuno)
     maxjuchuno = 0 if maxjuchuno.nil?
     p "maxjuchuno=" + maxjuchuno.to_s
@@ -10,6 +11,7 @@ class SaleController < ApplicationController
       p "juchunoあり"
       # 【修正画面パターン】既に受注が存在する場合
       @is_edit = true
+      @val_readonly = true
       # 既存の明細を取得して表示用配列を作成
       @inputdtls = @shahanhdr.shahandtls.order(:juchugyo).map do |dtl|
         {
@@ -30,8 +32,8 @@ class SaleController < ApplicationController
       # 初期表示用に空行を3行用意
       @inputdtls = Array.new(3) {
           { item_cd: "",
-            color: "",      # ★ 送信された値を保持
-            size: "",        # ★ 送信された値を保持
+            color: "カラー",      # ★ 送信された値を保持
+            size: "サイズ",        # ★ 送信された値を保持
             colors: nil,    # ★ カラー選択肢群
             sizes: nil,      # ★ サイズ選択肢群
             quantity: 1,
@@ -146,6 +148,7 @@ p items_params.size, valid_items.size
     # ★ 登録成功時：そのままの入力表示を維持し、登録完了フラグを立てる
     @is_edit = true
     @is_completed = true # 登録完了状態フラグ
+    @val_readonly = true
     # flash.now[:notice] = "社販受注の登録が完了しました。"
     flash.now[:order_success] = params[:juchuno].present? ? "社販受注の内容を更新しました。" : "社販受注の登録が完了しました。"
     p "iscompleted=" + @is_completed.to_s

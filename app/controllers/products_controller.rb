@@ -16,6 +16,7 @@ class ProductsController < ApplicationController
     first_product = products.first
     is_single = products.size == 1 && first_product.colorcd.blank? && first_product.sizecd.blank?
 
+    p "search_by_hinban " + hinban.to_s, is_single
     if is_single
       render json: {
         found: true,
