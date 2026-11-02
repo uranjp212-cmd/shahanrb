@@ -2,10 +2,6 @@ class Mpls::Shahandtl < ApplicationRecord
   self.table_name = "W_SHAHANDTL"
   self.primary_key = [ :shaincd, :juchuno, :juchugyo ]
 
-  #  has_one :shohin,
-  #    class_name: "Ff2::Shohin",
-  #    foreign_key: [ :hinban, :colorcd, :sizecd ],
-  #    primary_key: [ :hinban, :colorcd, :sizecd ]
   def shohin
     # RPAD関数を使って、DB側の末尾スペースを補完状態で比較する
     # これにより、Rails側の "" (空文字) と正しく一致するようになります
@@ -26,6 +22,7 @@ class Mpls::Shahandtl < ApplicationRecord
     #             .where(RPAD(sizecd:) sizecd)
     #             .first
   end
+  delegate :hinmeir, to: :shohin, allow_nil: true
 
   belongs_to :shahanhdr,
     class_name: "Mpls::Shahanhdr",

@@ -1,0 +1,34 @@
+table {
+    border-collapse: collapse;
+}
+
+h6 {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* 1. セルの高さを30pxに固定し、余白を調整 */
+.table td, .table th {
+    border: 1px solid black;
+    height: 30px !important;
+    padding: 0 8px !important; /* 左右の余白のみ残し、上下は0 */
+    line-height: 30px;         /* 文字の縦位置を中央に揃える */
+    vertical-align: middle;
+}
+
+/* 2. ボタンを置くセルだけは、隙間なくボタンを広げるために余白を完全に0にする */
+.table td:has(.btn) {
+    padding: 0 !important;
+}
+
+/* 3. ボタンをセルいっぱいに広げ、高さを30pxにする */
+.table td .btn-sm {
+    display: block;          /* 横幅いっぱいに広げる */
+    width: 100%;
+    height: 30px !important; /* セルと同じ高さにする */
+    margin: 0 !important;    /* 余計なマージンを消去 */
+    padding: 0 !important;   /* 内側の余白をリセット */
+    line-height: 30px;       /* ボタン内の文字を縦中央にする */
+    border-radius: 0;        /* 枠線いっぱいに四角くフィットさせる（お好みで） */
+    border: none;            /* セルの枠線と被る場合はボーダーを消す */
+}

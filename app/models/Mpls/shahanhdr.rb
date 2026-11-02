@@ -8,10 +8,20 @@ class Mpls::Shahanhdr < ApplicationRecord
 
   attribute :created_at, :datetime
   attribute :updated_at, :datetime
+  attribute :shakbn, :integer
 
   validates :shaincd, presence: true
   validates :juchuno, presence: true
-  # def valid_password?(input_password)
-  #   self.password == input_password
-  # end
+
+  belongs_to :address,
+              class_name: "Ff2::Address",
+              foreign_key: %i[adrcd1 adrcd2 adrcd3 adrcd4], primary_key: %i[adrcd1 adrcd2 adrcd3 adrcd4], optional: true
+  # shahanhdr.fulladr で直接呼べるようになります（オプション）
+  delegate :fulladr, to: :address, allow_nil: true
+  def adrall
+    "#{fulladr}#{adr2}"
+  end
+  def adrcd
+    "#{adrcd1}-#{adrcd2}-#{adrcd3}-#{adrcd4}"
+  end
 end

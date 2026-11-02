@@ -1,0 +1,775 @@
+<div class="order-container">
+  <h2>社販受注 <%= @is_edit ? "修正画面" : "登録画面" %></h2>
+<!-- これはHTMLコメントです。二重化すると両方コメントとなる
+<%# これはERBコメントです。ブラウザのHTMLソースには表示されません
+  <p> val_readonly=<%= @val_readonly %></p>
+%>
+-->
+  <!-- ★ 更新・登録成功メッセージ表示エリア -->
+  <% if flash[:order_success] %>
+    <div class="alert alert-success" style="background-color: #d4edda; color: #155724; padding: 12px 16px; margin-bottom: 20px; border: 1px solid #c3e6cb; border-radius: 4px; font-weight: bold;">
+      <%= flash[:order_success] %>
+    </div>
+  <% elsif flash[:alert] %>
+    <div class="alert alert-danger" style="background-color: #f8d7da; color: #721c24; padding: 12px 16px; margin-bottom: 20px; border: 1px solid #f5c6cb; border-radius: 4px; font-weight: bold;">
+      <%= flash[:alert] %>
+    </div>
+  <% end %>
+  <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:shainmei) %></p>
+
+  <% if @is_edit and !@is_completed %>
+    <div class="alert alert-info" style="background-color: #e8f4f8; color: #1d6f8a; border-color: #bce8f1; padding: 10px; margin-bottom: 15px;">
+      ※ 本日の受注データが既に存在します。内容を変更して「更新する」を押すと上書き保存されます。
+    </div>
+  <% end %>
+  <p ></p>
+  <%= form_with(url: sale_path, local: true, data: { turbo: false }, id: "order-form") do |f| %>
+    <input type="hidden" name="juchuno" value="<%= @juchuno %>">
+    <input type="hidden" name="is_edit" value="<%= @is_edit %>">
+    <%# 受取区分選択 %>
+    <div class="form-group">
+      <%= f.label :receipt_type, "受取区分", class: "fw-bold" %>
+      <%= f.radio_button :receipt_type, "takeout",
+            checked: (@receipt_type != 'delivery'), 
+            onchange: "toggleDeliveryButton()" %> 持ち帰り
+      <%= f.radio_button :receipt_type, "delivery",
+            checked: (@receipt_type == 'delivery'), 
+            onchange: "toggleDeliveryButton()" %> 配送
+    </div>
+    <%# ★ 配送先入力画面への遷移ボタン (formaction で送信先を変更) %>
+    <%# <button type="button" 
+            onclick="saveDraftAndRedirect()" 
+            class="btn btn-outline-primary mb-3">
+      配送先を選択・変更する
+    </button> %>
+    <div class="mb-3">
+      <button type="button" 
+              id="delivery-btn" 
+              onclick="saveDraftAndRedirect()" 
+              class="btn btn-outline-primary btn-sm"
+              <%= @receipt_type == "delivery" ? "" : "disabled" %>>
+        配送先を選択・変更する
+      </button>
+    </div>
+
+    <%# f.button "配送先を選択・変更する", 
+                type: "submit", 
+                formaction: save_draft_and_redirect_sale_index_path, 
+                formmethod: "post", 
+                class: "btn btn-outline-primary mb-3",
+                data: { turbo: false } %>
+
+    <%# 選択された配送先の表示エリア %>
+    <div id="delivery-display-area" class="alert alert-secondary mt-2 mb-3" style="<%= @selected_delivery.present? ? '' : 'display: none;' %>">
+      <% if @receipt_type == "delivery" %>
+        <% if @selected_delivery.present? %>
+          <% if @selected_delivery[:selection_type] == 'existing' %>
+            <%# 一覧からの選択時：配送先番号を中心に表示 %>
+            <div class="fw-bold text-primary">
+              <i class="bi bi-check-circle-fill me-1"></i> お届先：<%= @selected_delivery[:delivmei] %> 　様を選択しました
+            </div>
+            <!-- これはHTMLコメントです。
+            <div><strong>配送先番号:</strong> <%= @selected_delivery[:delivno] %></div>
+            <div><strong>宛名:</strong> <%= @selected_delivery[:delivmei] %> 様</div>
+            <div><strong>住所:</strong> 〒<%= @selected_delivery[:address_cd] %> <%= @selected_delivery[:address_after] %></div>
+            -->
+          <% elsif @selected_delivery[:selection_type] == 'new' %>
+            <%# 新規入力の適用時：新規配送先として情報を表示 %>
+            <div class="fw-bold text-primary">
+              <i class="bi bi-check-circle-fill me-1"></i> お届先：<%= @selected_delivery[:delivmei] %> 　様を入力しました
+            </div>
+            <!-- これはHTMLコメントです。
+            <div class="fw-bold text-success">
+              <i class="bi bi-plus-circle-fill me-1"></i> 新規配送先を適用しました
+            </div>
+            <div><strong>宛名:</strong> <%= @selected_delivery[:delivmei] %> 様</div>
+            <div><strong>電話番号:</strong> <%= @selected_delivery[:delivery_tel] %></div>
+            <div><strong>住所:</strong> 〒<%= @selected_delivery[:address_cd] %> <%= @selected_delivery[:address_after] %></div>
+            -->
+          <% else %>
+            <span class="text-muted">配送先が選択されていません。</span>
+          <% end %>
+        <% else %>
+          <span class="text-muted">配送先が選択されていません。</span>
+        <% end %>
+      <% end %>
+      <%# サーバー送信用の隠しフィールド %>
+      <input type="hidden" name="selection_type" value="<%= @selected_delivery[:selection_type] if @selected_delivery.present? %>">
+      <input type="hidden" name="delivno" value="<%= @selected_delivery[:delivno] if @selected_delivery.present? %>">
+      <input type="hidden" name="delivmei" value="<%= @selected_delivery[:delivmei] if @selected_delivery.present? %>">
+      <input type="hidden" name="delivery_tel" value="<%= @selected_delivery[:delivery_tel] if @selected_delivery.present? %>">
+      <input type="hidden" name="address_cd" value="<%= @selected_delivery[:address_cd] if @selected_delivery.present? %>">
+      <input type="hidden" name="address_after" value="<%= @selected_delivery[:address_after] if @selected_delivery.present? %>">
+      <input type="hidden" name="zipno" value="<%= @selected_delivery[:zipno] if @selected_delivery.present? %>">
+    </div>
+    <p ></p>
+    <table class="order-table" id="order-table">
+      <thead>
+        <tr>
+          <th style="width: 50px;">行</th>
+          <th style="width: 200px;">商品コード</th>
+          <th style="width: 300px;">商品名</th>
+          <th style="width: 100px;">単価</th>
+          <th>数量</th>
+          <th>金額</th>
+          <th style="width: 70px;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="order-items-tbody">
+        <% @inputdtls.each_with_index do |item, index| %>
+          <tr class="item-row">
+            <td class="row-number"><%= index + 1 %></td>
+            <td>
+              <div style="display: flex; gap: 4px; align-items: center;">
+              <!-- 1. 品番・カラー・サイズエリア -->
+                <% if @is_completed || @is_edit %>
+                  <input type="text" 
+                        name="items[][item_cd]" 
+                        value="<%= item[:item_cd] %>"
+                        class="input-item_cd" 
+                        style="width: 50px;"
+                        readonly=true
+                        >
+                  <input type="text" 
+                        name="items[][color]" 
+                        class="select-color" 
+                        value="<%= item[:color] %>"
+                        style="width: 20px;"
+                        readonly=true
+                        >
+                  <input type="text" 
+                        name="items[][size]" 
+                        class="select-size" 
+                        value="<%= item[:size] %>"
+                        style="width: 30px;"
+                        readonly=true
+                        >
+                <% else %>
+                  <!-- 品番（半角数字・英数等） -->
+                  <input type="text" 
+                        name="items[][item_cd]" 
+                        value="<%= item[:item_cd] %>" 
+                        placeholder="品番" 
+                        class="input-item_cd" 
+                        style="width: 50px;"
+                        <%# "readonly=true" if @val_readonly %> 
+                        oninput="handleCodeInput(this)"
+                        onblur="onHinbanBlur(this)">
+                  <!-- カラー（初期は非活性、品番入力後に設定） -->
+                  <select name="items[][color]" 
+                          class="select-color" 
+                          value="<%= item[:color] %>" 
+                          onchange="onColorChange(this)" 
+                          readonly = true>
+                    <%# <option value="">カラー</option> %>
+                  </select>
+                  <!-- サイズ（初期は非活性、カラー選択後に設定） -->
+                  <select name="items[][size]" 
+                          class="select-size" 
+                          value="<%= item[:size] %>" 
+                          onchange="onSizeChange(this)" 
+                          readonly = true>
+                    <%# <option value="">サイズ</option> %>
+                  </select>
+                <% end %>
+              </div>
+              <%# 隠し項目群（税抜き単価・税率区分・税額などをサーバー送信用に保持） %>
+              <input type="hidden" name="items[][baika]" class="item-baika-hidden" value="<%= item[:baika] || 0 %>">
+              <input type="hidden" name="items[][zeirtkbn]" class="item-zeirtkbn-hidden" value="<%= item[:zeirtkbn] || '0' %>">
+              <input type="hidden" name="items[][juchutax]" class="item-juchutax-hidden" value="<%= item[:juchutax] || 0 %>">
+            </td>
+            <!-- 商品名・税込み受注額の表示セル -->
+            <td class="product-name"><%= item[:item_name] %></td>
+            <td class="product-price">
+              <input type="number" 
+                      name="items[][juchukomigak]" 
+                      value="<%= item[:juchukomigak] || 0 %>" 
+                      class="item-price-input"
+                      style="text-align: right; width: 70px;"
+                      readonly=true>
+            </td>
+            <td>
+              <input type="number" 
+                      name="items[][quantity]" 
+                      value="<%= item[:quantity] || 1 %>" 
+                      min="1" 
+                      class="item-quantity-input"
+                      <%= "readonly=true" if @is_completed %> 
+                      oninput="calculateRowAndTotal()">
+            </td>
+            <td class="item-subtotal">
+              <%= (item[:subtotal] || 0) %>
+            </td>
+            <td>
+              <button type="button"
+                      class="btn-remove"
+                      <%= "disabled" if @is_completed %> 
+                      onclick="removeRow(this)">削除</button>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <div class="total-container" style="text-align: right; margin: 15px 0; font-size: 1.2em; font-weight: bold;">
+      合計金額: <span id="total-amount">0</span> 円
+    </div>
+
+    <% if !@is_completed %>
+      <div class="table-actions">
+        <button type="button" id="btn-add-row" class="btn-secondary" onclick="addRow()">+ 行を追加する</button>
+      </div>
+      <div class="form-actions">
+        <%= f.submit (@is_edit ? "受注内容を更新する" : "受注を確定する"), class: "btn-primary" %>
+      </div>
+    <% end %>
+  <% end %>
+<!-- これはHTMLコメントです。二重化すると両方コメントとなる
+<%# これはERBコメントです。ブラウザのHTMLソースには表示されません
+  <p style="color: red; font-weight: bold;">
+    デバッグ表示: <%= @is_completed.inspect %>
+  </p>
+%>
+-->
+  <!-- ★ 登録完了時に表示されるログアウトボタン -->
+  <p ></p>
+  <%= link_to (@is_completed ? "ログアウトする" : "戻る"), logout_path, data: { turbo_method: :delete }, class: "btn-logout", style: "background-color: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %>
+</div>
+
+<%# モーダル用の部分テンプレートを読み込み %>
+<%# render "delivery_modal" %>
+
+<script>
+  // 全行のカラー・サイズマップデータを一時保持するオブジェクト
+  const rowProductDataMap = new WeakMap();
+  // コントローラーで定義した @tax_rate_map（例: { "01": 0.10, "02": 0.08 }）を渡す
+  const TAX_RATE_MAP = <%= raw (@tax_rate_map || {}).to_json %>;
+  // 品番がreadonly
+  codereadonly = false;
+
+  // 画面読み込み完了時に自動計算を実行
+  document.addEventListener('turbo:load', async function() {
+    calculateRowAndTotal();
+    getHinmei();
+  });
+  
+  // document.addEventListener('DOMContentLoaded', () => {
+  //   // 現在選択されているラジオボタンを取得して初期表示を制御
+  //   const selectedRadio = document.querySelector('input[name="order[receipt_type]"]:checked') 
+  //                     || document.querySelector('input[name="receipt_type"]:checked');
+
+  //   if (selectedRadio) {
+  //     toggleDeliverySection(selectedRadio);
+  //   }
+  // });
+
+  // ① 品番入力時（フォーカスが外れた時）
+  async function onHinbanBlur(inputEl) {
+    const row = inputEl.closest('tr');
+    const hinban = inputEl.value.trim();
+
+    const colorSelect = row.querySelector('.select-color');
+    const sizeSelect = row.querySelector('.select-size');
+    const nameEl = row.querySelector('.product-name');
+    const priceEl = row.querySelector('.product-price');
+    const baikaEl = row.querySelector('.item-baika-hidden');
+    const zeirtkbnEl = row.querySelector('.item-zeirtkbn-hidden');
+
+    // debugger;
+    // ★ 品番が readonly の場合は処理を実行せずに終了
+    if (inputEl.readOnly) {
+      codereadonly = true;
+      return;
+      }
+    // 初期化ヘルパー
+    resetRow(row);
+
+    // console.log({ hinban });
+    if (!hinban) return;
+    nameEl.textContent = '検索中...';
+
+    try {
+      const response = await fetch(`/products/search_by_hinban?hinban=${encodeURIComponent(hinban)}`);
+      const data = await response.json();
+
+    debugger;
+      // alert("onHinban STEP01 " + hinban)
+      if (data.found) {
+        nameEl.textContent = data.name;
+        nameEl.style.color = '#333';
+        zeirtkbnEl.value = data.zeirtkbn;
+        // 検索後は品番修正不可
+        inputEl.readOnly = true;
+        const colors = data.colors; // 例: ["RED", "BLUE"] または [" "]
+        const sizes = data.sizes;   // 例: ["S", "M"] または [" "]
+        const isSingleColor = colors.length === 1;
+        const isSingleSize = sizes.length === 1;
+        // alert("onHinban STEP02 " + data.is_single)
+        if (isSingleColor) {
+          // カラー欄は固定
+          const value = colors[0]
+          colorSelect.innerHTML = `<option value="${value}" selected>${value}</option>`;
+          // colorSelect.innerHTML = '<option value=" "> </option>';
+          colorSelect.readOnly = true;
+        // ★ パターン②：カラーの選択が必要な場合
+        } else {
+          rowProductDataMap.set(row, data.color_size_map);
+          colorSelect.innerHTML = '<option value=" ">-</option>';
+          data.colors.forEach(color => {
+            const opt = document.createElement('option');
+            opt.value = color;
+            opt.textContent = color;
+            colorSelect.appendChild(opt);
+          });
+          colorSelect.readOnly = false;
+        }
+        if (isSingleSize) {
+          // サイズ欄は固定
+          const value = sizes[0]
+          sizeSelect.innerHTML = `<option value="${value}" selected>${value}</option>`;
+          // sizeSelect.innerHTML = '<option value=" "> </option>';
+          sizeSelect.readOnly = true;
+        }
+        // ----------------------------------------------------
+        // パターンA: カラーもサイズも単一（完全単一）
+        // ----------------------------------------------------
+        if (isSingleColor && isSingleSize) {
+          // 単価・金額を即座にセット
+          baikaEl.value = data.price;
+          // priceEl.textContent = Number(data.price).toLocaleString();
+          // priceEl.dataset.price = data.price;
+          calculateRowAndTotal();
+        }
+
+      } else {
+        nameEl.textContent = data.message;
+        nameEl.style.color = '#d9534f';
+      }
+    } catch (error) {
+      console.error('品番検索エラー:', error);
+      nameEl.textContent = '通信エラー';
+    }
+  }
+
+  // ② カラー選択時
+  function onColorChange(colorSelect) {
+    const row = colorSelect.closest('tr');
+    const selectedColor = colorSelect.value;
+    const sizeSelect = row.querySelector('.select-size');
+    // const priceEl = row.querySelector('.product-price');
+    const priceEl = row.querySelector('.item-price-input');
+    const baikaEl = row.querySelector('.item-baika-hidden');
+
+    // if (codereadonly) return;
+    
+    // debugger;
+    if (!selectedColor) return;
+
+    const colorSizeMap = rowProductDataMap.get(row);
+    if (!colorSizeMap || !colorSizeMap[selectedColor]) return;
+
+    // 選択されたカラーに対応するサイズ候補を設定
+    const sizeList = colorSizeMap[selectedColor];
+    if (sizeList.length === 1) {
+      // 選択されたサイズの単価を取得
+      const price = parseInt(sizeList[0].price, 10) || 0;
+      baikaEl.value = price;
+      // priceEl.textContent = price.toLocaleString();
+      // // priceEl.dataset.price = price; // ★計算用に data-price を更新！
+      // priceEl.value = price;
+      calculateRowAndTotal();
+      return;
+    }
+    // サイズ・単価を一旦リセット
+    sizeSelect.innerHTML = '<option value="">-</option>';
+    sizeSelect.readOnly = true;
+    baikaEl.value = '0';
+    // priceEl.textContent = '0';
+    // priceEl.dataset.price = '0';
+    calculateRowAndTotal();
+    sizeList.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.size;
+      opt.textContent = item.size;
+      opt.dataset.price = item.price; // 選択時に単価が取れるようデータ属性に忍ばせる
+      sizeSelect.appendChild(opt);
+    });
+
+    sizeSelect.disabled = false;
+  }
+
+  // ③ サイズ決定時（ここで単価・金額確定）
+  function onSizeChange(sizeSelect) {
+    const row = sizeSelect.closest('tr');
+    const selectedOption = sizeSelect.options[sizeSelect.selectedIndex];
+    // const priceEl = row.querySelector('.product-price');
+    const priceEl = row.querySelector('.item-price-input');
+    const baikaEl = row.querySelector('.item-baika-hidden');
+
+    // debugger;
+    // if (codereadonly) return;
+    if (selectedOption && selectedOption.value !== "") {
+      // 選択されたサイズの単価を取得
+      const price = parseInt(selectedOption.dataset.price, 10) || 0;
+      baikaEl.value = price;
+      // priceEl.textContent = price.toLocaleString();
+      // // priceEl.dataset.price = price; // ★計算用に data-price を更新！
+      // priceEl.value = price;
+       calculateRowAndTotal();
+    } else {
+      priceEl.textContent = '0';
+      priceEl.dataset.price = '0';
+    }
+
+    // 行小計および総合計の自動再計算
+    calculateRowAndTotal();
+  }
+
+    // 表示リセット用の関数
+  function resetRow(row) {
+    const colorSelect = row.querySelector('.select-color');
+    const sizeSelect = row.querySelector('.select-size');
+    const priceEl = row.querySelector('.product-price');
+    const baikaEl = row.querySelector('.item-baika-hidden');
+    const zeirtkbnEl = row.querySelector('.item-zeirtkbn-hidden');
+    const juchutaxEl = row.querySelector('.item-juchutax-hidden');
+    // alert("resetRow In");
+    
+    colorSelect.innerHTML = '<option value="">-</option>';
+    colorSelect.readonly = true;
+    
+    sizeSelect.innerHTML = '<option value="">-</option>';
+    sizeSelect.readonly = true;
+
+    // priceEl.textContent = '0';
+    // priceEl.dataset.price = '0';
+    baikaEl.value = '0';
+    zeirtkbnEl.value = '0';
+    juchutaxEl.value = '0';
+    
+    calculateRowAndTotal();
+  }
+
+  // 入力中に5,6桁に達した時点で自動取得
+  function handleCodeInput(input) {
+    const code = input.value.trim();
+
+    // if (code.length === 5 || code.length === 6) {
+    if (code.length === 6) {
+      // fetchProductInfo(input);
+      onHinbanBlur(input);
+    }
+  }
+
+  // 行追加
+  function addRow() {
+    const tbody = document.getElementById('order-items-tbody');
+    const rowCount = tbody.getElementsByClassName('item-row').length;
+    const newRow = document.createElement('tr');
+    newRow.className = 'item-row';
+    newRow.innerHTML = `
+      <td class="row-number">${rowCount + 1}</td>
+      <td>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <input type="text" 
+                name="items[][item_cd]" 
+                placeholder="品番"
+                class="input-item-cd" 
+                style="width: 80px;"
+                oninput="handleCodeInput(this)"
+                onblur="onHinbanBlur(this)">
+          <select name="items[][color]"
+                class="select-color"
+                onchange="onColorChange(this)"
+                readonly = true>
+                <option value="">-</option>
+          </select>
+          <select name="items[][size]"
+                class="select-size"
+                onchange="onSizeChange(this)"
+                readonly = true>
+                <option value="">-</option>
+          </select>
+        </div>
+        <%# 隠し項目群（税抜き単価・税率区分・税額などをサーバー送信用に保持） %>
+        <input type="hidden" name="items[][baika]" class="item-baika-hidden" value="0">
+        <input type="hidden" name="items[][zeirtkbn]" class="item-zeirtkbn-hidden" value="0">
+        <input type="hidden" name="items[][juchutax]" class="item-juchutax-hidden" value="0">
+      </td>
+      <td class="product-name-cell"><span class="product-name" style="color: #666;">-</span></td>
+      <td class="product-price">
+        <input type="number" 
+                name="items[][juchukomigak]" 
+                value="0" 
+                class="item-price-input"
+                style="text-align: right; width: 70px;"
+                readonly=true>
+      </td>
+      <td>
+        <input type="number" 
+                name="items[][quantity]" 
+                value="1" 
+                min="1" 
+                class="item-quantity-input"
+                oninput="calculateRowAndTotal()">
+      </td>
+      <td class="item-subtotal">0</td>
+      <td>
+        <button type="button" class="btn-remove" onclick="removeRow(this)">削除</button>
+      </td>
+    `;
+    tbody.appendChild(newRow);
+    renumberRows();
+  }
+
+  // 行削除
+  function removeRow(button) {
+    const tbody = document.getElementById('order-items-tbody');
+    if (tbody.getElementsByClassName('item-row').length > 1) {
+      button.closest('tr').remove();
+      renumberRows();
+      calculateRowAndTotal();
+    } else {
+      alert('明細は1行以上必要です。');
+    }
+  }
+
+  // 行番号再振り直し
+  function renumberRows() {
+    const rows = document.querySelectorAll('#order-items-tbody .item-row');
+    rows.forEach((row, index) => {
+      row.querySelector('.row-number').textContent = index + 1;
+    });
+  }
+
+document.getElementById('order-form').addEventListener('submit', function(e) {
+  const codeInputs = document.querySelectorAll('.input-item-cd');
+  let hasValidInput = false;
+
+  // debugger;
+  // alert("明細入力チェックを通過しました！");
+
+  codeInputs.forEach(input => {
+    if (input.value.trim() !== '') {
+      hasValidInput = true;
+    }
+  });
+
+  // 1件も商品コードが入力されていない場合は送信をストップ
+  // if (!hasValidInput) {
+  //   e.preventDefault();
+  //   alert('明細を1件以上入力してください。');
+  // }
+});
+
+// 明細金額および合計金額を計算する関数
+function calculateRowAndTotal() {
+  let grandTotalProductPrice = 0;
+  document.querySelectorAll('.item-row').forEach(row => {
+    // 要素の取得
+    const baikaHidden        = row.querySelector('.item-baika-hidden');
+    const zeirtkbnHidden      = row.querySelector('.item-zeirtkbn-hidden');
+    const quantityInput      = row.querySelector('.item-quantity-input');
+
+    const taxAmountHidden    = row.querySelector('.item-juchutax-hidden');
+    const productPriceText   = row.querySelector('.item-price-input');
+    const subtotalText       = row.querySelector('.item-subtotal');
+
+    const priceEl = row.querySelector('.product-price');
+
+    // １．単価 baika と 税率区分 zertkbn の取得
+    const baika    = parseFloat(baikaHidden?.value) || 0;
+    const zertkbn  = zeirtkbnHidden?.value || '0';
+    const quantity = parseFloat(quantityInput?.value) || 0;
+
+    // ２．コード名称マスタから税率 zeirt を取得
+    const zeirt = TAX_RATE_MAP[zertkbn] ?? 0.10;
+
+    // 2.5．税込単価 = baika * zeirt（端数切り捨て）
+    const taxBaika = Math.floor(baika * zeirt);
+    const price = baika + taxBaika;
+    if (productPriceText)   productPriceText.textContent = price.toLocaleString();
+    priceEl.textContent = price.toLocaleString();
+    priceEl.dataset.price = price;
+
+    // ３．税額 = baika * zeirt * 数量（端数切り捨て）
+    const taxAmount = Math.floor(baika * zeirt) * quantity;
+
+    // ４．税込み額 product-price = baika * 数量 + 税額
+    const productPrice = (baika * quantity) + taxAmount;
+
+    // 算出結果を隠しフィールドと画面表示に反映
+    if (taxAmountHidden)    taxAmountHidden.value = taxAmount;
+    if (subtotalText)   subtotalText.textContent = productPrice.toLocaleString();
+
+    grandTotalProductPrice += productPrice;
+  });
+
+  // 画面下部の総合計表示を更新
+  const totalAmountEl = document.getElementById('total-amount');
+  if (totalAmountEl) {
+    totalAmountEl.textContent = grandTotalProductPrice.toLocaleString();
+  }
+}
+
+// function calculateRowAndTotal() {
+//   let totalSum = 0;
+//   const rows = document.querySelectorAll('#order-table tbody tr');
+//     // console.log({ code });
+//     //  console.log("calculateRowAndTotal Begin");
+//     let idx = 0;
+//   rows.forEach(row => {
+//     const price = parseFloat(row.querySelector('.product-price').dataset.price) || 0;
+//     const quantityInput = row.querySelector('.item-quantity-input');
+//     const quantity = parseInt(quantityInput ? quantityInput.value : 0, 10) || 0;
+
+//     idx++;
+//     // alert("calculateRowAndTotal idx= " + idx);
+//     // if (idx = 2) {
+//     //   debugger;
+//     // }
+//     // 明細金額の計算
+//     const subtotal = price * quantity;
+//     const subtotalElement = row.querySelector('.item-subtotal');
+//     if (subtotalElement) {
+//       subtotalElement.textContent = subtotal.toLocaleString();
+//     }
+
+//     // 総合計の加算
+//     totalSum += subtotal;
+//   });
+
+//   // 総合計金額の表示更新
+//   const totalAmountElement = document.getElementById('total-amount');
+//   if (totalAmountElement) {
+//     totalAmountElement.textContent = totalSum.toLocaleString();
+//   }
+// }
+
+// 数量入力時に計算を実行
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('item-quantity-input')) {
+    calculateRowAndTotal();
+  }
+});
+
+// function toggleDeliverySection(radio) {
+//   debugger;
+//   // const section = document.getElementById('delivery-section');
+//   // if (radio.value === 'delivery') {
+//   //   section.style.display = 'block';
+//   // } else {
+//   //   section.style.display = 'none';
+//   //   clearDeliveryFields();
+//   // }
+//   if (radio.value === 'delivery') {
+//     // 画面の入力内容を一時保存した上で、配送先入力別画面へ遷移する
+//     window.location.href = '<%= delivery_input_sale_index_path %>';
+//   }
+// }
+
+function clearDeliveryFields() {
+  document.getElementById('hid_delivno').value = '';
+  document.getElementById('hid_delivmei').value = '';
+  document.getElementById('hid_delivery_tel').value = '';
+  document.getElementById('hid_address_cd').value = '';
+  document.getElementById('hid_address_after').value = '';
+  document.getElementById('selected-delivery-info').textContent = '配送先が選択されていません。';
+}
+
+// Rails の @tax_rate_table を JSON 化して JS に渡す
+const TAX_RATE_TABLE = <%= raw @tax_rate_table.to_json %>;
+
+// 税率区分コードから計算用小数（0.10 など）を取得する関数
+function getTaxRateByKbn(taxKbn) {
+  const target = TAX_RATE_TABLE.find(item => item.tax_kbn === taxKbn);
+  return target ? target.tax_rate : 0.10; // 該当なしはデフォルト 10%
+}
+
+// 計算例：単価 × 数量 × (1 + 税率)
+function calculateTaxIncluded(price, qty, taxKbn) {
+  const rate = getTaxRateByKbn(taxKbn);
+  const subtotalNoTax = price * qty;
+  const taxAmount = Math.floor(subtotalNoTax * rate); // 端数切り捨ての場合
+  return subtotalNoTax + taxAmount;
+}
+
+// 受取区分の変更時に配送先ボタンの有効/無効、および表示エリアを切り替える
+function toggleDeliveryButton() {
+  const deliveryRadio = document.querySelector('input[name="receipt_type"][value="delivery"]');
+  const deliveryBtn = document.getElementById('delivery-btn');
+  const deliveryDisplayArea = document.getElementById('delivery-display-area');
+
+  if (deliveryRadio.checked) {
+    deliveryBtn.removeAttribute('disabled'); // 有効化
+    if (deliveryDisplayArea.innerHTML.trim() !== "") {
+      deliveryDisplayArea.style.display = 'block';
+    }
+  } else {
+    deliveryBtn.setAttribute('disabled', 'true'); // 無効化
+    deliveryDisplayArea.style.display = 'none';   // 非表示
+  }
+}
+
+function saveDraftAndRedirect() {
+  // フォーム全体の要素を取得
+  const form = document.getElementById('order-form');
+  const formData = new FormData(form);
+
+  // Railsのメタタグから CSRF トークンを確実に取得
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+  // fetchでバックグラウンド送信（セッションに一時保存）
+  fetch('<%= save_draft_and_redirect_sale_index_path %>', {
+    method: 'POST',
+    headers: {
+      'X-CSRF-Token': csrfToken,
+      'Accept': 'application/json'
+    },
+    body: formData
+  })
+  .then(response => {
+    if (response.ok) {
+      // 保存に成功したら配送先選択画面へ遷移
+      window.location.href = '<%= delivery_input_sale_index_path %>';
+    } else {
+      alert('一時保存に失敗しました。');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('通信エラーが発生しました。');
+  });
+}
+
+// 商品名を取得する関数
+async function getHinmei() {
+  const rows = document.querySelectorAll('.item-row');
+  
+  // for...of ループを使うことで、ループ内で安全に await が使えるようになります
+  for (const row of rows) {
+    // 要素の取得
+    const hinbanInput = row.querySelector('.input-item_cd');
+    const nameSpan    = row.querySelector('.product-name'); // 商品名を表示する要素
+
+    const hinban = hinbanInput ? hinbanInput.value.trim() : '';
+
+    // 品番等がある場合、サーバーから商品名を取得して表示を更新する
+    if (hinban.length > 0) {
+      try {
+        const response = await fetch(`/products/search_by_hinban?hinban=${encodeURIComponent(hinban)}`);
+        const data = await response.json();
+
+        if (data.found && nameSpan) {
+          nameSpan.textContent = data.name; // 取得した商品名をセット
+        } else if (nameSpan) {
+          nameSpan.textContent = '（商品が見つかりません）';
+        }
+      } catch (error) {
+        console.error('商品名取得エラー:', error);
+      }
+    }
+  }
+}
+
+</script>
