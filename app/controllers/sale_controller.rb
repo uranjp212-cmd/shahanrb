@@ -197,7 +197,9 @@ class SaleController < ApplicationController
         end
       end
     end
+    p "@selected_delivery.delivno=" + @selected_delivery[:delivno].to_s
     p "@receipt_type=" + @receipt_type.to_s
+    p "selection_type=" + @selected_delivery[:selection_type].to_s
   rescue => e
     Rails.logger.debug("【DEBUG】rescueにキャッチされました: #{e.message}")
     # その他例外時
@@ -210,33 +212,35 @@ class SaleController < ApplicationController
     # 2-2. インスタンスの生成（Strong Parameters を渡す）
     # indexからのパラメータはparamsで、配送画面情報はセッション変数session[:sale_draft]から取得
     # params[:items] = [ { "item_cd" => "123456", "quantity" => "2" }, ... ]
-    draft_data = (session[:sale_draft] || {}).with_indifferent_access
+    # draft_data = (session[:sale_draft] || {}).with_indifferent_access
     # items_params = draft_data[:items] || []
     items_params = params[:items] || []
     valid_items = items_params.reject { |item| item[:item_cd].blank? }
-    @selected_delivery = draft_data[:delivery] || {}
+    # @selected_delivery = draft_data[:delivery] || {}
     receipt_type = params[:receipt_type]
     p "receipt_type=" + receipt_type.to_s
+    # p "selection_type=" + @selected_delivery[:selection_type].to_s
+    # p "delivnoshop=" + @selected_delivery[:delivno].to_s
+    selection_type = params[:selection_type].to_s
     juchuno = params[:juchuno].to_i
     dlvappbi = params.dig(:dlvappbi) || 0
     dlvkbn = params.dig(:dlvkbn) || " "
     p "dlvkbn=" + dlvkbn.to_s
-
-    delivnoshop = 0
     delivno = 0
+    delivmei = params[:delivmei]
+    delivery_tel = params[:delivery_tel]
+    address_after = params[:address_after].to_s
+    zipno = params[:zipno]
+    address_cd = params[:address_cd]
+    delivnoshop = params[:delivno]
+
     adrcd1 = " "
     adrcd2 = " "
     adrcd3 = " "
     adrcd4 = " "
     if receipt_type == "delivery"
-      if @selected_delivery[:selection_type] == "new"
+      if selection_type == "new"
         shodelivkbn = "9"
-        delivno = @selected_delivery[:delivno]
-        delivmei = @selected_delivery[:delivmei]
-        delivery_tel = @selected_delivery[:delivery_tel]
-        address_after = @selected_delivery[:address_after].to_s
-        zipno = @selected_delivery[:zipno]
-        address_cd = @selected_delivery[:address_cd]
         address_cd = "00-000-000-000" if address_cd.nil?
         adrcd1 = address_cd[0, 2].to_s
         adrcd2 = address_cd[3, 3].to_s
@@ -244,7 +248,6 @@ class SaleController < ApplicationController
         adrcd4 = address_cd[11, 3].to_s
       else
         shodelivkbn = "3"
-        delivnoshop = @selected_delivery[:delivno]
       end
     else
       shodelivkbn = "1"
@@ -259,7 +262,7 @@ class SaleController < ApplicationController
       p "render step01"
       flash.now[:alert] = "明細を1件以上入力してください。"
       @inputdtls = items_params
-      if params(:is_edit) == "true"
+      if params[:is_edit] == "true"
         # 一覧表示用のデータを取得
         load_existing_orders
         return render :edit, status: :unprocessable_entity
@@ -274,7 +277,7 @@ class SaleController < ApplicationController
     #     # flash[:alert] = "配送先が指定・確定されていません。配送先を入力してください。"
     #     #   # 受注画面（または配送先入力画面）へリダイレクト
     #     # redirect_to sale_index_path and return
-    #     # if params(:is_edit) == "true"
+    #     # if params[:is_edit] == "true"
     #     p "render step02 1"
     #     # 一覧表示用のデータを取得
     #     # load_existing_orders
@@ -295,7 +298,7 @@ class SaleController < ApplicationController
         p "render step03"
         flash.now[:alert] = gyo.to_s + "行目 商品コードは半角数字5桁または6桁で入力して下さい。"
         @inputdtls = items_params
-        if params(:is_edit) == "true"
+        if params[:is_edit] == "true"
           return render :edit, status: :unprocessable_entity
         else
           return render :new, status: :unprocessable_entity
@@ -435,28 +438,36 @@ class SaleController < ApplicationController
     # Rails.logger.debug("【DEBUG】render直前のインスタンス変数: #{@is_completed.inspect}")
     # 入力内容を保持したまま画面を再描画
     @inputdtls = valid_items
-    @receipt_type = params(:receipt_type)
-      # 登録成功したらセッション破棄
-      # session.delete(:sale_draft)
-      # rebuild_inputdtls(valid_items)
-      # if params(:is_edit) == "true"
-      #   render :edit
-      # else
+    @receipt_type = params[:receipt_type]
+    # 登録成功したらセッション破棄
+    # session.delete(:sale_draft)
+    # rebuild_inputdtls(valid_items)
+    if params[:is_edit] == "true"
+      render :edit
+    else
       render :new
-    # end
+    end
   rescue ActiveRecord::RecordNotFound => e
     Rails.logger.debug("【DEBUG】rescue1にキャッチされました: #{e.message}")
     # 商品コードが存在しなかった場合のエラーハンドリング
     flash.now[:alert] = "存在しない商品コードが含まれています。"
     @inputdtls = items_params
-    render :index, status: :unprocessable_entity
+    if params[:is_edit] == "true"
+      render :edit, status: :unprocessable_entity
+    else
+      render :new, status: :unprocessable_entity
+    end
 
   rescue ActiveRecord::RecordInvalid => e
     Rails.logger.debug("【DEBUG】rescue2にキャッチされました: #{e.message}")
     # バリデーションエラー時
     flash.now[:alert] = "入力内容に不備があります: #{e.message}"
     @inputdtls = items_params
-    render :index, status: :unprocessable_entity
+    if params[:is_edit] == "true"
+      render :edit, status: :unprocessable_entity
+    else
+      render :new, status: :unprocessable_entity
+    end
 
   rescue => e
     Rails.logger.debug("【DEBUG】rescue3にキャッチされました: #{e.message}")
@@ -464,7 +475,11 @@ class SaleController < ApplicationController
     # flash.now[:alert] = "システムエラーが発生しました。登録をやり直してください。"
     flash.now[:alert] = e.message
     @inputdtls = items_params
-    render :index, status: :unprocessable_entity
+    if params[:is_edit] == "true"
+      render :edit, status: :unprocessable_entity
+    else
+      render :new, status: :unprocessable_entity
+    end
   end
 
   # 受注画面から「配送先入力画面へ」押下時に呼ばれるアクション

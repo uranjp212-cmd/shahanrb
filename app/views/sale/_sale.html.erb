@@ -48,7 +48,7 @@
           配送先を選択・変更する
         </button>
         <label id="dlv1" style="margin-left: 40px;">お届け日&nbsp;
-          <input type="date" id="dlv2" name="dlvappbi" value="<%= @selected_delivery[:dlvappbi] %>">
+          <input type="date" id="dlv2" name="dlvappbi" value="<%# @selected_delivery[:dlvappbi] %>">
         </label>
         <label id="dlv3">&nbsp;&nbsp;&nbsp;時間帯指定&nbsp;
           <%= f.select :dlvkbn, 
