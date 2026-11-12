@@ -141,12 +141,12 @@
             <option value="">郵便番号を入力してください</option>
           </select>
           <!-- サーバー送信用の住所コード隠しフィールド -->
-          <%= f.hidden_field :new_address_cd, class: "form-control" %>
-          <%# <input type="hidden" id="new_address_cd"> %>
+          <%= f.hidden_field :new_address_cd, class: "form-control",
+                              value: (@current_delivery.present? ? @current_delivery[:address_cd] : '') %>
           <!-- 表示用の住所基本テキスト -->
           <input type="hidden" id="new_address_base">
         </div>
-
+        <div>adrcd=<%= @current_delivery.present? ? @current_delivery[:address_cd] : '' %></div>
         <div class="mb-3">
           <%= f.label :address_after, "住所番地以降", class: "form-label fw-bold" %>
           <%= f.text_field :new_address_after, class: "form-control",
@@ -176,28 +176,38 @@
 </div>
 
 <script>
+// 初期ロード中フラグを true にしておく
+let isInitialLoading = true;
+// 画面の読み込みが完了した時の処理（またはDOMContentLoaded内）
+document.addEventListener('DOMContentLoaded', () => {
+  // 修正画面などで初期値のセットがすべて終わったタイミングでフラグを解除する
+  setTimeout(() => {
+    isInitialLoading = false;
+  }, 300); // または非同期処理の完了後
+});
+
 // document.addEventListener('DOMContentLoaded', () => {
 //   // debugger;
 //   // 1. 最新の配送先一覧を取得してモーダル内のテーブルを更新する
 //   loadDeliveryAddresses();
 // });
 
-// A. 既存配送先を選択した場合
-function selectExistingAddress(delivno, delivmei, tel, fullAddress) {
-  debugger;
-  // 既存 delivno をセットし、新規用パラメータはクリア
-  document.getElementById('hid_delivno').value = delivno;
-  document.getElementById('hid_delivmei').value = '';
-  document.getElementById('hid_delivery_tel').value = '';
-  document.getElementById('hid_address_cd').value = '';
-  document.getElementById('hid_address_after').value = '';
+// // A. 既存配送先を選択した場合
+// function selectExistingAddress(delivno, delivmei, tel, fullAddress) {
+//   debugger;
+//   // 既存 delivno をセットし、新規用パラメータはクリア
+//   document.getElementById('hid_delivno').value = delivno;
+//   document.getElementById('hid_delivmei').value = '';
+//   document.getElementById('hid_delivery_tel').value = '';
+//   document.getElementById('hid_address_cd').value = '';
+//   document.getElementById('hid_address_after').value = '';
 
-  // 画面表示の更新
-  document.getElementById('selected-delivery-info').innerHTML = 
-    `<strong>[登録済 No.${delivno}]</strong> ${delivmei} 様 (${tel}) <br> ${fullAddress}`;
+//   // 画面表示の更新
+//   document.getElementById('selected-delivery-info').innerHTML = 
+//     `<strong>[登録済 No.${delivno}]</strong> ${delivmei} 様 (${tel}) <br> ${fullAddress}`;
 
-  closeDeliveryModal();
-}
+//   closeDeliveryModal();
+// }
 
 // B. 新規配送先を入力・適用した場合
 function selectNewAddress(event) {
@@ -268,7 +278,7 @@ async function searchAddressByZip(zipValue, targetCd = savedAddressCd) {
   const hidAddressBase = document.getElementById('new_address_base');
 
   const cleanZip = zipValue.replace(/[^0-9]/g, '');
-  debugger;
+  // debugger;
   if (cleanZip.length < 7) {
     if (cleanZip.length > 0) {
       // 途中で入力が止まっている場合などにアラートを出す
@@ -322,8 +332,11 @@ async function searchAddressByZip(zipValue, targetCd = savedAddressCd) {
                     + "-" + data.candidates[0].adrcd4;
       hidAddressBase.value = data.candidates[0].full_address_text;
     } else {
-      hidAddressCd.value = '';
-      hidAddressBase.value = '';
+      // 初期ロード中であれば、クリアしない
+      if (!isInitialLoading) {
+        hidAddressCd.value = '';
+        hidAddressBase.value = '';
+      }
     }
 
   } catch (error) {
@@ -335,7 +348,7 @@ async function searchAddressByZip(zipValue, targetCd = savedAddressCd) {
 // ドロップダウンの選択が変わった時
 function onAddressSelectChange(selectEl) {
   const selectedOption = selectEl.options[selectEl.selectedIndex];
-  debugger;
+  // debugger;
   if (selectedOption && selectedOption.value !== '') {
     document.getElementById('new_address_cd').value = selectedOption.value;
     document.getElementById('new_address_base').value = selectedOption.textContent;
@@ -348,6 +361,7 @@ function onAddressSelectChange(selectEl) {
 // 選択ボックスのリセット補助関数
 function resetAddressSelect(message) {
   const selectEl = document.getElementById('select_address_cd');
+  // debugger;
   selectEl.innerHTML = `<option value="">${message}</option>`;
   selectEl.disabled = true;
   document.getElementById('new_address_cd').value = '';
@@ -359,39 +373,39 @@ function resetAddressSelect(message) {
  * @param {Object} delivery - 配送先データオブジェクト
  *   { delivno, delivmei, delivery_tel, address_cd, address_after }
  */
-function setDeliveryInfo(delivery) {
-  // 1. サーバー送信用の hidden フィールドへ値をセット
-  document.getElementById('hid_delivno').value      = delivery.delivno || '';
-  document.getElementById('hid_delivmei').value     = delivery.delivmei || '';
-  document.getElementById('hid_delivery_tel').value = delivery.delivery_tel || '';
-  document.getElementById('hid_address_cd').value   = delivery.address_cd || '';
-  document.getElementById('hid_address_after').value= delivery.address_after || '';
+// function setDeliveryInfo(delivery) {
+//   // 1. サーバー送信用の hidden フィールドへ値をセット
+//   document.getElementById('hid_delivno').value      = delivery.delivno || '';
+//   document.getElementById('hid_delivmei').value     = delivery.delivmei || '';
+//   document.getElementById('hid_delivery_tel').value = delivery.delivery_tel || '';
+//   document.getElementById('hid_address_cd').value   = delivery.address_cd || '';
+//   document.getElementById('hid_address_after').value= delivery.address_after || '';
 
-  // 2. 表示エリアの HTML をきれいに整形して作成
-  const displayArea = document.getElementById('selected-delivery-info');
+//   // 2. 表示エリアの HTML をきれいに整形して作成
+//   const displayArea = document.getElementById('selected-delivery-info');
   
-  if (!delivery.delivno) {
-    displayArea.innerHTML = '<span class="text-muted">配送先が選択されていません。</span>';
-    return;
-  }
+//   if (!delivery.delivno) {
+//     displayArea.innerHTML = '<span class="text-muted">配送先が選択されていません。</span>';
+//     return;
+//   }
 
-  // 郵便番号のフォーマット整形（例: "8100001" ➔ "〒810-0001"）
-  const formattedZip = formatZipCode(delivery.address_cd);
+//   // 郵便番号のフォーマット整形（例: "8100001" ➔ "〒810-0001"）
+//   const formattedZip = formatZipCode(delivery.address_cd);
 
-  // 画面表示用のHTML組み立て
-  displayArea.innerHTML = `
-    <div class="delivery-card p-3 bg-white border rounded shadow-sm">
-      <div class="d-flex align-items-center mb-1">
-        <span class="badge bg-primary me-2">選択中</span>
-        <strong class="fs-6 me-2">${escapeHtml(delivery.delivmei)}</strong> 様
-      </div>
-      <div class="text-secondary small">
-        <div><i class="bi bi-geo-alt me-1"></i>${formattedZip} ${escapeHtml(delivery.address_after)}</div>
-        <div><i class="bi bi-telephone me-1"></i>TEL: ${escapeHtml(delivery.delivery_tel || '未登録')}</div>
-      </div>
-    </div>
-  `;
-}
+//   // 画面表示用のHTML組み立て
+//   displayArea.innerHTML = `
+//     <div class="delivery-card p-3 bg-white border rounded shadow-sm">
+//       <div class="d-flex align-items-center mb-1">
+//         <span class="badge bg-primary me-2">選択中</span>
+//         <strong class="fs-6 me-2">${escapeHtml(delivery.delivmei)}</strong> 様
+//       </div>
+//       <div class="text-secondary small">
+//         <div><i class="bi bi-geo-alt me-1"></i>${formattedZip} ${escapeHtml(delivery.address_after)}</div>
+//         <div><i class="bi bi-telephone me-1"></i>TEL: ${escapeHtml(delivery.delivery_tel || '未登録')}</div>
+//       </div>
+//     </div>
+//   `;
+// }
 
 // 郵便番号をハイフン付き（〒xxx-xxxx）に整形する補助関数
 function formatZipCode(zip) {

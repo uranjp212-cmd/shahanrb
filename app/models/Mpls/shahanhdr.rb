@@ -9,6 +9,8 @@ class Mpls::Shahanhdr < ApplicationRecord
   attribute :created_at, :datetime
   attribute :updated_at, :datetime
   attribute :shakbn, :integer
+  # dlvappbi 属性を上記カスタム型として定義
+  attribute :dlvappbi, EightDigitDateType.new
 
   validates :shaincd, presence: true
   validates :juchuno, presence: true

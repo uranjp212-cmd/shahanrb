@@ -130,6 +130,8 @@ class SaleController < ApplicationController
     p "delivno=" + delivno.to_s
     p "address_cd=" + address_cd.to_s
     p "zipno=" + zipno.to_s
+    p "dlvappbi=" + @selected_delivery[:dlvappbi].to_s
+
 
     @receipt_type = "takeout"
     if @selected_delivery[:confirmed].present?
@@ -138,7 +140,6 @@ class SaleController < ApplicationController
     else
       p "no confirmed"
     end
-    shaincd = current_shain.shaincd
     if draft_data[:items].present?
       @receipt_type = draft_data[:receipt_type]
       @inputdtls = draft_data[:items]
@@ -148,58 +149,13 @@ class SaleController < ApplicationController
       p "items ari size1=" + inputdtl[:size].to_s
     else
       p "items nashi"
-      @shahanhdr = Mpls::Shahanhdr.find_by(shaincd: shaincd, juchuno: @juchuno)
-      if @shahanhdr.present?
-        shodelivkbn = @shahanhdr.shodelivkbn
-        if shodelivkbn != "1"
-          @receipt_type = "delivery"
-          if @shahanhdr.delivno > 0
-            shahandlv = Mpls::Shahandlv.find_by(shaincd: shaincd, delivno: @shahanhdr.delivno)
-            selection_type = "new"
-            delivmei = shahandlv.delivmei
-          end
-          if @shahanhdr.delivnoshop > 0
-            kyakuno = Ff2::Kokyaku.where(ntelno: shaincd.to_s.rjust(6, "0")).maximum(:kyakuno)
-            todokesaki = Ff2::Todokesaki.find_by(kyakuno: kyakuno, delivno: @shahanhdr.delivnoshop)
-            selection_type = "existing"
-            delivmei = todokesaki.delivmei
-          end
-          @selected_delivery = {
-            selection_type: selection_type || "NONE",
-            delivno: @shahanhdr.delivnoshop || 0,
-            delivmei: delivmei || "",
-            delivery_tel: shahandlv.present? ? shahandlv.ntelno : "",
-            address_cd: @shahanhdr.adrcd || "",        # 住所コード（郵便番号など）
-            address_after: @shahanhdr.adr2 || "",  # 住所（番地・建物名など）
-            zipno: shahandlv.present? ? shahandlv.zipno : "",
-            dlvappbi: @shahanhdr.dlvappbi,
-            dlvkbn: @shahanhdr.dlvkbn
-            }
-        end
-        # 既存の明細を取得して表示用配列を作成
-        @inputdtls = @shahanhdr.shahandtls.order(:juchugyo).map do |dtl|
-          {
-            item_cd: dtl.hinban,
-            color: dtl.colorcd,      # ★ 送信された値を保持
-            size: dtl.sizecd,        # ★ 送信された値を保持
-            colors: nil,    # ★ カラー選択肢群
-            sizes: nil,      # ★ サイズ選択肢群
-            quantity: dtl.juchusu,
-            item_name: dtl.shohin&.hinmeir,
-            juchukomigak: dtl.juchugak + dtl.juchutax,
-            baika: dtl.baika,
-            juchugak: dtl.juchugak,
-            juchutax: dtl.juchutax,
-            zeirtkbn: dtl.zeirtkbn,
-            subtotal: dtl.baika * dtl.juchusu,
-            hinmeir: dtl.shohin&.hinmeir
-            }
-        end
-      end
+      # 修正表示用のデータを取得
+      load_inputdtls
     end
     p "@selected_delivery.delivno=" + @selected_delivery[:delivno].to_s
     p "@receipt_type=" + @receipt_type.to_s
     p "selection_type=" + @selected_delivery[:selection_type].to_s
+    Rails.logger.debug "【DEBUG @selected_delivery: #{@selected_delivery.inspect}"
   rescue => e
     Rails.logger.debug("【DEBUG】rescueにキャッチされました: #{e.message}")
     # その他例外時
@@ -223,16 +179,29 @@ class SaleController < ApplicationController
     # p "delivnoshop=" + @selected_delivery[:delivno].to_s
     selection_type = params[:selection_type].to_s
     juchuno = params[:juchuno].to_i
-    dlvappbi = params.dig(:dlvappbi) || 0
+    # パラメータから日付文字列を取得（例: “2026-11-02”）
+    raw_dlvappbi = params[:dlvappbi].presence || params.dig(:dlvappbi)
+    dlvappbi = if raw_dlvappbi.present?
+      begin
+        # 日付文字列をパースして "20261102" の形式に変換し、整数（または .to_s で文字列）にする
+        Date.parse(raw_dlvappbi).strftime("%Y%m%d").to_i
+      rescue ArgumentError
+        # 不正な日付形式が送られてきた場合のフォールバック
+        0
+      end
+    else
+      0 # 未入力の場合のデフォルト値
+    end
+    # dlvappbi = params.dig(:dlvappbi) || 0
     dlvkbn = params.dig(:dlvkbn) || " "
-    p "dlvkbn=" + dlvkbn.to_s
-    delivno = 0
+    p "dlvappbi=" + dlvappbi.to_s
+    delivno = "0"
     delivmei = params[:delivmei]
     delivery_tel = params[:delivery_tel]
     address_after = params[:address_after].to_s
     zipno = params[:zipno]
     address_cd = params[:address_cd]
-    delivnoshop = params[:delivno]
+    delivnoshop = params[:delivno] || "0"
 
     adrcd1 = " "
     adrcd2 = " "
@@ -263,8 +232,6 @@ class SaleController < ApplicationController
       flash.now[:alert] = "明細を1件以上入力してください。"
       @inputdtls = items_params
       if params[:is_edit] == "true"
-        # 一覧表示用のデータを取得
-        load_existing_orders
         return render :edit, status: :unprocessable_entity
       else
         return render :new, status: :unprocessable_entity
@@ -323,32 +290,52 @@ class SaleController < ApplicationController
     # DBトランザクションで一括登録処理
     ActiveRecord::Base.transaction do
       p "begin tran " + params[:is_edit].to_s
-      if params[:is_edit] == "true"
+    if shodelivkbn == "9"
+      maxdelivno = Mpls::Shahandlv.where(shaincd: shaincd).maximum(:delivno)
+      maxdelivno = 0 if maxdelivno.nil?
+      delivno = maxdelivno + 1
+    end
+    if params[:is_edit] == "true"
         shahanhdr = Mpls::Shahanhdr.find_by(shaincd: shaincd, juchuno: juchuno)
         olddelivno = shahanhdr.delivno
-        shahanhdr.update!(
+        if olddelivno > 0
+          delivno = olddelivno
+        end
+        Rails.logger.debug "【DEBUG UPDATE】shodelivkbn: #{shodelivkbn}, dlvappbi: #{dlvappbi}, dlvkbn: #{dlvkbn}"
+        # update!は変更がないと判断してskipする事があるので、必ずUPDATEを実行させる
+        shahanhdr.assign_attributes(
           shodelivkbn: shodelivkbn,
-          delivno: delivno,
           delivnoshop: delivnoshop,
-          dlvappbi: dlvappbi,
+          delivno: delivno,
           dlvkbn: dlvkbn,
-          shakbn: SHAKBN,
+          dlvappbi: dlvappbi,
           shastabi: yyyymmdd,
+          shakbn: SHAKBN,
           adrcd1: adrcd1,
           adrcd2: adrcd2,
           adrcd3: adrcd3,
           adrcd4: adrcd4,
           adr2: address_after
-          )
+        )
+        shahanhdr.save!
+        # shahanhdr.update!(
+        #   shodelivkbn: shodelivkbn,
+        #   delivno: delivno,
+        #   delivnoshop: delivnoshop,
+        #   dlvappbi: dlvappbi,
+        #   dlvkbn: dlvkbn,
+        #   shakbn: SHAKBN,
+        #   shastabi: yyyymmdd,
+        #   adrcd1: adrcd1,
+        #   adrcd2: adrcd2,
+        #   adrcd3: adrcd3,
+        #   adrcd4: adrcd4,
+        #   adr2: address_after
+        #   )
         # 修正の場合：既存の明細（W_SHAHANDTL）を一旦全削除（作り直し）
         shahanhdr.shahandtls.destroy_all
         maxjuchuno = shahanhdr.juchuno
-      else
-        if shodelivkbn == "9"
-          maxdelivno = Mpls::Shahandlv.where(shaincd: shaincd).maximum(:delivno)
-          maxdelivno = 0 if maxdelivno.nil?
-          delivno = maxdelivno + 1
-        end
+    else
         # 新規の場合：受注番号を発行してヘッダーを作成
         maxjuchuno = Mpls::Shahanhdr.where(shaincd: shaincd).maximum(:juchuno)
         maxjuchuno = 0 if maxjuchuno.nil?
@@ -370,7 +357,7 @@ class SaleController < ApplicationController
           shakbn: SHAKBN,
           shastabi: yyyymmdd
           )
-      end
+    end
       if olddelivno > 0
         shahandlv = Mpls::Shahandlv.find_by(shaincd: shaincd, delivno: olddelivno)
         shahandlv.destroy
@@ -382,7 +369,7 @@ class SaleController < ApplicationController
           delivmei: delivmei,
           ntelno: delivery_tel,
           telno: " ",
-          adr1: address_after,
+          adr1: " ",
           zipno: zipno
           )
       end
@@ -438,15 +425,21 @@ class SaleController < ApplicationController
     # Rails.logger.debug("【DEBUG】render直前のインスタンス変数: #{@is_completed.inspect}")
     # 入力内容を保持したまま画面を再描画
     @inputdtls = valid_items
+    p "create last01"
     @receipt_type = params[:receipt_type]
     # 登録成功したらセッション破棄
     # session.delete(:sale_draft)
     # rebuild_inputdtls(valid_items)
+    p "create last02"
+    draft_data = (session[:sale_draft] || {}).with_indifferent_access
+    @selected_delivery = draft_data[:delivery] || {}
+    p "create last03"
     if params[:is_edit] == "true"
       render :edit
     else
       render :new
     end
+    p "create last04"
   rescue ActiveRecord::RecordNotFound => e
     Rails.logger.debug("【DEBUG】rescue1にキャッチされました: #{e.message}")
     # 商品コードが存在しなかった場合のエラーハンドリング
@@ -508,15 +501,15 @@ class SaleController < ApplicationController
 
     # 各パラメータをセッションに格納
     draft[:items] = params[:items]
+    draft[:is_edit] = params[:is_edit]
+    draft[:juchuno] = params[:juchuno]
+    draft[:receipt_type] = params[:receipt_type]
     p "items size=" + draft[:items].size.to_s
     itemdtl = params[:items][0]
     p "items item_cd=" + itemdtl[:item_cd].to_s
     p "items hinmeir=" + itemdtl[:hinmeir].to_s
-    draft[:is_edit] = params[:is_edit]
+    p "dlvappbi=" + params[:dlvappbi].to_s
     p "save_draft_and_redirect is_edit=" + draft[:is_edit].to_s
-    draft[:juchuno] = params[:juchuno]
-    draft[:receipt_type] = params[:receipt_type]
-    p "delivno=" + params[:delivno].to_s
     # ★ 画面上で入力・選択されている配送先情報を delivery キーにまとめて保存する
     draft[:delivery] = {
       confirmed: delivery[:confirmed],
@@ -558,6 +551,8 @@ class SaleController < ApplicationController
     # 現在セッション（または既存受注）に保持されている配送先情報を取得
     draft_data = (session[:sale_draft] || {}).with_indifferent_access
     delivery_data = draft_data[:delivery] || {}
+    dlvappbi = delivery_data[:dlvappbi] || 0
+    dlvkbn = delivery_data[:dlvkbn] || ""
     itemdtl = draft_data[:items][0]
     p "items item_cd=" + itemdtl[:item_cd].to_s
     p "items hinmeir=" + itemdtl[:hinmeir].to_s
@@ -599,7 +594,9 @@ class SaleController < ApplicationController
         address_cd: address_cd,
         address_after: (shahanhdr.present? ? shahanhdr.adr2 : ""),
         delivery_tel: (shahandlv.present? ? shahandlv.ntelno : ""),
-        zipno: (shahandlv.present? ? shahandlv.zipno : "")
+        zipno: (shahandlv.present? ? shahandlv.zipno : ""),
+        dlvappbi: dlvappbi,
+        dlvkbn: dlvkbn
       }
       # 初回構築時のみセッションに反映しておく
       draft_data[:delivery] = @current_delivery
@@ -619,13 +616,19 @@ class SaleController < ApplicationController
     else
       p "mode none"
     end
+    Rails.logger.debug "【DEBUG @current_delivery】: #{@current_delivery.inspect}"
   end
 
   # 配送先画面で「この配送先を選択」押下時に呼ばれるアクション
   def apply_delivery
     @receipt_type = "delivery"
-    # 選択した配送先情報を session に追記
-    session[:sale_draft] ||= {}
+    draft = (session[:sale_draft] || {}).with_indifferent_access
+    delivery = draft[:delivery] || {}
+    dlvappbi = delivery[:dlvappbi] || 0
+    dlvkbn = delivery[:dlvkbn] || ""
+
+    # # 選択した配送先情報を session に追記
+    # session[:sale_draft] ||= {}
 
     p "apply_delivery address_after=" + params[:new_address_after].to_s
     if params[:selection_type] == "new"
@@ -639,7 +642,9 @@ class SaleController < ApplicationController
         delivery_tel: params[:delivery_tel],
         address_cd: params[:new_address_cd],
         address_after: params[:new_address_after],
-        zipno: params[:new_zip]
+        zipno: params[:new_zip],
+        dlvappbi: dlvappbi,
+        dlvkbn: dlvkbn
       }
     else
       p "apply_delivery exist delivno=" + params[:delivno].to_s
@@ -652,7 +657,9 @@ class SaleController < ApplicationController
         delivery_tel: params[:tel],
         address_cd: params[:adrcd],
         address_after: params[:address_after],
-        zipno: params[:new_zip]
+        zipno: params[:new_zip],
+        dlvappbi: dlvappbi,
+        dlvkbn: dlvkbn
       }
     end
 
@@ -667,6 +674,88 @@ class SaleController < ApplicationController
   end
 
   private
+
+  def load_inputdtls
+    shaincd = current_shain.shaincd
+    @shahanhdr = Mpls::Shahanhdr.find_by(shaincd: shaincd, juchuno: @juchuno)
+    if @shahanhdr.present?
+      shodelivkbn = @shahanhdr.shodelivkbn
+      if shodelivkbn != "1"
+        @receipt_type = "delivery"
+        if @shahanhdr.delivno > 0
+          shahandlv = Mpls::Shahandlv.find_by(shaincd: shaincd, delivno: @shahanhdr.delivno)
+          selection_type = "new"
+          delivmei = shahandlv.delivmei
+        end
+        if @shahanhdr.delivnoshop > 0
+          kyakuno = Ff2::Kokyaku.where(ntelno: shaincd.to_s.rjust(6, "0")).maximum(:kyakuno)
+          todokesaki = Ff2::Todokesaki.find_by(kyakuno: kyakuno, delivno: @shahanhdr.delivnoshop)
+          selection_type = "existing"
+          delivmei = todokesaki.delivmei
+        end
+        # formatted_dlvappbi = if @shahanhdr&.dlvappbi.present?
+        #   val_str = @shahanhdr.dlvappbi.to_s
+        #   if val_str.length == 8
+        #     # "20261102" -> "2026-11-02"
+        #     "#{val_str[0, 4]}-#{val_str[4, 2]}-#{val_str[6, 2]}"
+        #   else
+        #     ""
+        #   end
+        # else
+        #   ""
+        # end
+        @selected_delivery = {
+          selection_type: selection_type || "NONE",
+          delivno: @shahanhdr.delivnoshop || 0,
+          delivmei: delivmei || "",
+          delivery_tel: shahandlv.present? ? shahandlv.ntelno : "",
+          address_cd: @shahanhdr.adrcd || "",        # 住所コード（郵便番号など）
+          address_after: @shahanhdr.adr2 || "",  # 住所（番地・建物名など）
+          zipno: shahandlv.present? ? shahandlv.zipno : "",
+          dlvappbi: @shahanhdr.dlvappbi,
+          dlvkbn: @shahanhdr.dlvkbn
+          }
+      end
+      # 既存の明細を取得して表示用配列を作成
+      @inputdtls = @shahanhdr.shahandtls.order(:juchugyo).map do |dtl|
+        {
+          item_cd: dtl.hinban,
+          color: dtl.colorcd,      # ★ 送信された値を保持
+          size: dtl.sizecd,        # ★ 送信された値を保持
+          colors: nil,    # ★ カラー選択肢群
+          sizes: nil,      # ★ サイズ選択肢群
+          quantity: dtl.juchusu,
+          item_name: dtl.shohin&.hinmeir,
+          juchukomigak: dtl.juchugak + dtl.juchutax,
+          baika: dtl.baika,
+          juchugak: dtl.juchugak,
+          juchutax: dtl.juchutax,
+          zeirtkbn: dtl.zeirtkbn,
+          subtotal: dtl.baika * dtl.juchusu,
+          hinmeir: dtl.shohin&.hinmeir
+          }
+      end
+    else
+      # 初期表示用に空行を3行用意
+      @inputdtls = Array.new(3) {
+        { item_cd: "",
+          color: "カラー",      # ★ 送信された値を保持
+          size: "サイズ",        # ★ 送信された値を保持
+          colors: nil,    # ★ カラー選択肢群
+          sizes: nil,      # ★ サイズ選択肢群
+          quantity: 1,
+          item_name: "",
+          juchukomigak: 0,
+          baika: 0,
+          juchugak: 0,
+          juchutax: 0,
+          zeirtkbn: nil,
+          subtotal: 0
+          }
+      }
+      @selected_delivery = {}
+    end
+  end
   # 一覧データを組み立てる共通メソッド
   def load_existing_orders
     p "load_existing_orders in"
@@ -675,11 +764,13 @@ class SaleController < ApplicationController
     @existing_orders = []
     shahanhdrs.each do |hdr|
       delivmei = "持帰り"
-      if hdr.delivno > 0
+      delivno = hdr.delivno || 0
+      delivnoshop = hdr.delivnoshop || 0
+      if delivno > 0
         shahandlv = Mpls::Shahandlv.find_by(shaincd: shaincd, delivno: hdr.delivno)
         delivmei = shahandlv.delivmei
       end
-      if hdr.delivnoshop > 0
+      if delivnoshop > 0
         kyakuno = Ff2::Kokyaku.where(ntelno: shaincd.to_s.rjust(6, "0")).maximum(:kyakuno)
         todokesaki = Ff2::Todokesaki.find_by(kyakuno: kyakuno, delivno: hdr.delivnoshop)
         delivmei = todokesaki.delivmei

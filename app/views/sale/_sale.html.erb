@@ -19,7 +19,7 @@
 
   <% if @is_edit and !@is_completed %>
     <div class="alert alert-info" style="background-color: #e8f4f8; color: #1d6f8a; border-color: #bce8f1; padding: 10px; margin-bottom: 15px;">
-      ※ 本日の受注データが既に存在します。内容を変更して「更新する」を押すと上書き保存されます。
+      ※ 内容を変更して「更新する」を押すと上書き保存されます。
     </div>
   <% end %>
   <p ></p>
@@ -48,11 +48,11 @@
           配送先を選択・変更する
         </button>
         <label id="dlv1" style="margin-left: 40px;">お届け日&nbsp;
-          <input type="date" id="dlv2" name="dlvappbi" value="<%# @selected_delivery[:dlvappbi] %>">
+          <input type="date" id="dlv2" name="dlvappbi" value="<%= @selected_delivery[:dlvappbi].presence || session[:sale_draft]&.dig(:dlvappbi) %>">
         </label>
         <label id="dlv3">&nbsp;&nbsp;&nbsp;時間帯指定&nbsp;
           <%= f.select :dlvkbn, 
-                      options_for_select(@dlvkbn_options, @sale&.dlvkbn || session[:sale_draft]&.dig(:dlvkbn)), 
+                      options_for_select(@dlvkbn_options, @selected_delivery[:dlvkbn].presence || session[:sale_draft]&.dig(:dlvkbn)), 
                       { include_blank: "指定なし" }, 
                       { class: "form-select form-select-sm", id: "select-dlvkbn" } %>
         </label>
@@ -244,7 +244,7 @@
   <br>
   <!-- ★ 登録完了時に表示されるログアウトボタン -->
   <% if session[:back_to_index] %>
-    <%= link_to (@is_completed ? "ログアウトする" : "一覧に戻る"), index_sale_path, class: "btn-logout", style: "background-color: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %>
+    <%= link_to "一覧に戻る", index_sale_path, class: "btn-logout", style: "background-color: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %>
   <% else %>
     <%= link_to (@is_completed ? "ログアウトする" : "戻る"), logout_path, data: { turbo_method: :delete }, class: "btn-logout", style: "background-color: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px;" %>
   <% end %>
@@ -700,17 +700,17 @@ document.addEventListener('input', function(e) {
 //   }
 // }
 
-function clearDeliveryFields() {
-  document.getElementById('hid_delivno').value = '';
-  document.getElementById('hid_delivmei').value = '';
-  document.getElementById('hid_delivery_tel').value = '';
-  document.getElementById('hid_address_cd').value = '';
-  document.getElementById('hid_address_after').value = '';
-  document.getElementById('selected-delivery-info').textContent = '配送先が選択されていません。';
-}
+// function clearDeliveryFields() {
+//   document.getElementById('hid_delivno').value = '';
+//   document.getElementById('hid_delivmei').value = '';
+//   document.getElementById('hid_delivery_tel').value = '';
+//   document.getElementById('hid_address_cd').value = '';
+//   document.getElementById('hid_address_after').value = '';
+//   document.getElementById('selected-delivery-info').textContent = '配送先が選択されていません。';
+// }
 
 // Rails の @tax_rate_table を JSON 化して JS に渡す
-const TAX_RATE_TABLE = <%= raw @tax_rate_table.to_json %>;
+var TAX_RATE_TABLE = <%= raw @tax_rate_table.to_json %>;
 
 // 税率区分コードから計算用小数（0.10 など）を取得する関数
 function getTaxRateByKbn(taxKbn) {
