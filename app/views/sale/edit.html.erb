@@ -1,0 +1,7 @@
+<script>
+  // 新規画面であることをテンプレートへ教える
+  window.saleMode = 'edit';
+  window.targetJuchuno = '<%= @juchuno %>'; // コントローラーから渡されている受注番号
+</script>
+<%# テンプレートを読み込み %>
+<%= render "sale" %>

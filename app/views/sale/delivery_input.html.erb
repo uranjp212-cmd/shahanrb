@@ -1,0 +1,439 @@
+<%# サーバー側から前回の住所コードをJS変数として渡す %>
+<script>
+  const savedAddressCd = "<%= @adrcd.present? ? @adrcd : '' %>";
+</script>
+
+<% content_for :css do %>
+  <%= stylesheet_link_tag "sale/delivery" %>
+<% end %>
+<!-- 配送先選択モーダル -->
+<div class="container my-4">
+  <h2 class="mb-4">配送先の指定</h2>
+  <%# <div class="card shadow-sm mt-3" id="delivery-section"> %>
+    
+  <!-- 
+  <p> current_delivno=<%= @current_delivno %></p>
+  -->
+  <div class="card-header">
+    <%# <h5 class="card-title" id="deliveryModalLabel" style="font-size: 16px;">配送先の選択・新規登録</h5> %>
+    <%# もとの画面（受注登録）に戻るボタンなどを配置 %>
+    <%# link_to "受注画面に戻る", sale_index_path, class: "btn btn-outline-secondary btn-sm" %>
+    <%# link_to "受注画面に戻る", new_sale_path, class: "btn btn-outline-secondary btn-sm" %>
+    <% if session[:delivery_back_mode] == 'edit' && session[:delivery_target_juchuno].present? %>
+      <%= link_to "戻る", edit_sale_path(is_edit: "true",juchuno: session[:delivery_target_juchuno]), class: "btn btn-secondary px-4" %>
+    <% else %>
+      <%= link_to "戻る", new_sale_path, class: "btn btn-secondary px-4" %>
+    <% end %>
+  </div>
+
+  <%# --- 1. 既存配送先の一覧（データがある場合のみ見出しとリストを表示） --- %>
+  <% if @deliveries.present? && @deliveries.any? %>
+    <%# --- 1. 既存の配送先が選ばれていた場合の表示枠 --- %>
+    <% if @current_delivery.present? && @current_delivery[:selection_type] = "existing" %>
+      <div class="alert alert-info mb-4">
+        <%# <h5 class="alert-heading fw-bold">現在選択されている配送先</h5> %>
+        <p class="mb-1"><strong>選択中の配送先番号:</strong> <span class="badge bg-primary fs-5"><%= @current_delivery[:delivno] %></span></p>
+      </div>
+      <% @current_delivery[:delivmei] = "" %> <%# 新規入力欄に表示しない %>
+    <% end %>
+    <div class="card-body">
+      <!-- 1. 既存配送先一覧 -->
+      <h6 style="font-size: 16px;">登録済み配送先一覧</h6>
+      <!-- 
+      <link href="delivery.css" rel="stylesheet" type="text/css">
+      -->
+      <div class="table-responsive style-max-height" style="max-height: 220px; overflow-y: auto;">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th>№</th>
+              <th>お届け先氏名</th>
+              <th>電話番号</th>
+              <th>住所</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="delivery-list-container">
+            <% @deliveries.each do |d| %>
+              <%# 現在選ばれている番号と一致する場合は行の色を変えるなどの演出も可能 %>
+              <% is_selected = (@current_delivery.present? && @current_delivery[:delivno].to_s == d[:delivno].to_s) %>
+              <tr class="<%= is_selected ? 'table-primary' : '' %>">
+                <td>
+                  <span class="fw-bold"><%= d[:delivno] %></span>
+                  <% if is_selected %>
+                    <span class="badge bg-success ms-1">〇</span>
+                  <% end %>
+                </td>
+                <td><%= d[:delivmei] %></td>
+                <td><%= d[:tel] %></td>
+                <td><%= d[:full_address] %></td>
+                <td>
+                  <%# 一覧選択時は delivno を含めて apply_delivery へ POST %>
+                  <%= button_to "選択", 
+                                apply_delivery_sale_index_path, 
+                                method: :post, 
+                                params: { 
+                                  selection_type: 'existing',
+                                  delivno: d[:delivno], 
+                                  delivmei: d[:delivmei], 
+                                  delivery_tel: d[:tel], 
+                                  address_cd: d[:adrcd], 
+                                  address_after: d[:adr23], 
+                                  zipno: nil 
+                                }, 
+                                class: "btn btn-sm btn-primary",
+                                data: { turbo: false } %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+      </table>
+    </div>
+  <% end %>
+
+  <hr>
+
+  <%# --- パターン B: 新規配送先の直接入力 --- %>
+  <fieldset>
+    <legend>新規配送先の入力</legend>
+<!-- これはHTMLコメントです。
+  <div class="card shadow-sm">
+    <div class="card-header bg-light">
+      <h3 class="mb-0">新規配送先の入力</h3>
+    </div>
+-->
+    <div class="card-body text-start">
+      <%= form_with(url: apply_delivery_sale_index_path, method: :post, data: { turbo: false }) do |f| %>
+        <%= f.hidden_field :selection_type, value: 'new' %>
+
+        <div class="mb-3 text-start">
+          <%= f.label :delivmei, "お届け先氏名", class: "form-label fw-bold" %>
+          <%# f.text_field :delivmei, class: "form-control", required: true %>
+          <%= f.text_field :delivmei, 
+                value: (@current_delivery.present? ? @current_delivery[:delivmei] : ''), 
+                class: "form-control", 
+                required: true %>
+        </div>
+
+        <div class="mb-3 text-start">
+          <%= f.label :delivery_tel, "電話番号　　", class: "form-label fw-bold" %>
+          <%# f.text_field :delivery_tel, class: "form-control" %>
+          <%= f.text_field :delivery_tel,
+                value: (@current_delivery.present? ? @current_delivery[:delivery_tel] : ''),
+                maxlength: "15",
+                class: "form-control" %>
+        </div>
+
+        <div class="mb-3">
+          <%= f.label :new_zip, "郵便番号　　", class: "form-label fw-bold" %>
+          <%= f.text_field :new_zip, class: "form-control",
+                                      value: (@current_delivery.present? ? @current_delivery[:zipno] : ''),
+                                      maxlength: "7",
+                                      onblur: "searchAddressByZip(this.value)" %>
+          <%# <label class="form-label small">郵便番号</label> %>
+          <%# <input type="text" id="new_zip" class="form-control form-control-sm" placeholder="1234567" onblur="searchAddressByZip(this.value)"> %>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-bold">住所（市区町村） <span class="text-danger">*</span></label>
+          <!-- ドロップダウンに変更 -->
+          <select id="select_address_cd" class="form-select form-select-sm" disabled onchange="onAddressSelectChange(this)">
+            <option value="">郵便番号を入力してください</option>
+          </select>
+          <!-- サーバー送信用の住所コード隠しフィールド -->
+          <%= f.hidden_field :new_address_cd, class: "form-control",
+                              value: (@current_delivery.present? ? @current_delivery[:address_cd] : '') %>
+          <!-- 表示用の住所基本テキスト -->
+          <input type="hidden" id="new_address_base">
+        </div>
+        <div>adrcd=<%= @current_delivery.present? ? @current_delivery[:address_cd] : '' %></div>
+        <div class="mb-3">
+          <%= f.label :address_after, "住所番地以降", class: "form-label fw-bold" %>
+          <%= f.text_field :new_address_after, class: "form-control",
+                                            value: (@current_delivery.present? ? @current_delivery[:address_after] : ''),
+                                            placeholder: "例: 1-2-3 ○○ビル201",
+                                            required: true %>
+        </div>
+
+        <p></p>
+        <div class="text-end">
+          <%= f.submit "新規配送先を適用する", class: "btn btn-success px-4", onclick: "selectNewAddress(event)" %>
+        </div>
+      <% end %>
+    </div>
+<!-- これはHTMLコメントです。
+  </div>
+-->
+  </fieldset>
+
+<!-- これはHTMLコメントです。
+    <p></p>
+    <div class="card-footer">
+      <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">閉じる</button>
+    </div>
+-->
+
+</div>
+
+<script>
+// 初期ロード中フラグを true にしておく
+let isInitialLoading = true;
+// 画面の読み込みが完了した時の処理（またはDOMContentLoaded内）
+document.addEventListener('DOMContentLoaded', () => {
+  // 修正画面などで初期値のセットがすべて終わったタイミングでフラグを解除する
+  setTimeout(() => {
+    isInitialLoading = false;
+  }, 300); // または非同期処理の完了後
+});
+
+// document.addEventListener('DOMContentLoaded', () => {
+//   // debugger;
+//   // 1. 最新の配送先一覧を取得してモーダル内のテーブルを更新する
+//   loadDeliveryAddresses();
+// });
+
+// // A. 既存配送先を選択した場合
+// function selectExistingAddress(delivno, delivmei, tel, fullAddress) {
+//   debugger;
+//   // 既存 delivno をセットし、新規用パラメータはクリア
+//   document.getElementById('hid_delivno').value = delivno;
+//   document.getElementById('hid_delivmei').value = '';
+//   document.getElementById('hid_delivery_tel').value = '';
+//   document.getElementById('hid_address_cd').value = '';
+//   document.getElementById('hid_address_after').value = '';
+
+//   // 画面表示の更新
+//   document.getElementById('selected-delivery-info').innerHTML = 
+//     `<strong>[登録済 No.${delivno}]</strong> ${delivmei} 様 (${tel}) <br> ${fullAddress}`;
+
+//   closeDeliveryModal();
+// }
+
+// B. 新規配送先を入力・適用した場合
+function selectNewAddress(event) {
+  const delivmei = document.getElementById('delivmei').value.trim();
+  const tel = document.getElementById('delivery_tel').value.trim();
+  const addressCd = document.getElementById('new_address_cd').value.trim();
+  const addressBase = document.getElementById('new_address_base').value.trim();
+  const addressAfter = document.getElementById('new_address_after').value.trim();
+
+  debugger;
+  errflg = false;
+  if (!delivmei) {
+    alert('お届先を入力してください。');
+    errflg = true;
+  } else if (!tel ) {
+    alert('電話番号を入力してください。');
+    errflg = true;
+  } else if (!addressCd ) {
+    alert('住所を選択してください。');
+    errflg = true;
+  } else if (!addressAfter ) {
+    alert('番地以降を入力してください。');
+    errflg = true;
+  } else {
+      // それ以外
+  }
+  // if (!tel.matches("^[0-9]{7,}$")) {
+  //   alert('電話番号は１０桁以上の数字で入力してください。');
+  //   errflg = true;
+  // }
+
+  if (errflg) {
+    // ★ここでフォームの送信（POST）をガッチリとストップする！
+    if (event) {
+      event.preventDefault();
+    }
+    return false;
+  }
+
+  // 既存 delivno は空にし、新規項目をセット
+  document.getElementById('hid_delivno').value = '0';
+  document.getElementById('hid_delivmei').value = delivmei;
+  document.getElementById('hid_delivery_tel').value = tel;
+  document.getElementById('hid_address_cd').value = addressCd;
+  document.getElementById('hid_address_after').value = addressAfter;
+
+  // 画面表示の更新
+  document.getElementById('selected-delivery-info').innerHTML = 
+    `<strong>[新規]</strong> ${delivmei} 様 (${tel}) <br> ${addressBase} ${addressAfter}`;
+
+  closeDeliveryModal();
+}
+
+// エスケープ用ユーティリティ
+function escapeHtml(str) {
+  return (str || '').replace(/[&<>"']/g, match => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[match]));
+}
+function escapeJs(str) {
+  return (str || '').replace(/'/g, "\\'");
+}
+
+// 郵便番号入力時の検索関数
+async function searchAddressByZip(zipValue, targetCd = savedAddressCd) {
+  const selectEl = document.getElementById('select_address_cd');
+  const hidAddressCd = document.getElementById('new_address_cd');
+  const hidAddressBase = document.getElementById('new_address_base');
+
+  const cleanZip = zipValue.replace(/[^0-9]/g, '');
+  // debugger;
+  if (cleanZip.length < 7) {
+    if (cleanZip.length > 0) {
+      // 途中で入力が止まっている場合などにアラートを出す
+      alert('7桁の郵便番号を入力してください。');
+    }
+    resetAddressSelect('7桁の郵便番号を入力してください');
+    return;
+  }
+
+  try {
+    const response = await fetch(`/delivery_addresses/search_address?zip=${cleanZip}`);
+    const data = await response.json();
+
+    if (!data.found || !data.candidates || data.candidates.length === 0) {
+      alert(data.message || '該当する住所が見つかりませんでした。');
+      resetAddressSelect('住所が見つかりません');
+      return;
+    }
+
+    // ドロップダウンを初期化して有効化
+    selectEl.innerHTML = '';
+    selectEl.disabled = false;
+
+    // 候補が複数ある場合の初期未選択肢
+    if (data.candidates.length > 1) {
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '-- 選択してください --';
+      selectEl.appendChild(defaultOpt);
+    }
+
+    // 取得した候補を option に追加
+    data.candidates.forEach(item => {
+      const opt = document.createElement('option');
+      const itemVal = item.adrcd1 + "-" + item.adrcd2 + "-" + item.adrcd3 + "-" + item.adrcd4;
+      opt.value = itemVal
+      opt.textContent = item.full_address_text;
+      // ★ targetCd（前回の選択値）と一致する場合は選択状態にする
+      if (targetCd && itemVal === targetCd) {
+        opt.selected = true;
+      }
+      selectEl.appendChild(opt);
+    });
+
+    // 候補が1件だけの場合は自動選択
+    if (data.candidates.length === 1) {
+      selectEl.selectedIndex = 0;
+      hidAddressCd.value = data.candidates[0].adrcd1
+                    + "-" + data.candidates[0].adrcd2
+                    + "-" + data.candidates[0].adrcd3
+                    + "-" + data.candidates[0].adrcd4;
+      hidAddressBase.value = data.candidates[0].full_address_text;
+    } else {
+      // 初期ロード中であれば、クリアしない
+      if (!isInitialLoading) {
+        hidAddressCd.value = '';
+        hidAddressBase.value = '';
+      }
+    }
+
+  } catch (error) {
+    console.error('住所検索エラー:', error);
+    resetAddressSelect('検索エラーが発生しました');
+  }
+}
+
+// ドロップダウンの選択が変わった時
+function onAddressSelectChange(selectEl) {
+  const selectedOption = selectEl.options[selectEl.selectedIndex];
+  // debugger;
+  if (selectedOption && selectedOption.value !== '') {
+    document.getElementById('new_address_cd').value = selectedOption.value;
+    document.getElementById('new_address_base').value = selectedOption.textContent;
+  } else {
+    document.getElementById('new_address_cd').value = '';
+    document.getElementById('new_address_base').value = '';
+  }
+}
+
+// 選択ボックスのリセット補助関数
+function resetAddressSelect(message) {
+  const selectEl = document.getElementById('select_address_cd');
+  // debugger;
+  selectEl.innerHTML = `<option value="">${message}</option>`;
+  selectEl.disabled = true;
+  document.getElementById('new_address_cd').value = '';
+  document.getElementById('new_address_base').value = '';
+}
+
+/**
+ * モーダルで選択された配送先情報を画面表示＆hiddenフィールドへ反映する
+ * @param {Object} delivery - 配送先データオブジェクト
+ *   { delivno, delivmei, delivery_tel, address_cd, address_after }
+ */
+// function setDeliveryInfo(delivery) {
+//   // 1. サーバー送信用の hidden フィールドへ値をセット
+//   document.getElementById('hid_delivno').value      = delivery.delivno || '';
+//   document.getElementById('hid_delivmei').value     = delivery.delivmei || '';
+//   document.getElementById('hid_delivery_tel').value = delivery.delivery_tel || '';
+//   document.getElementById('hid_address_cd').value   = delivery.address_cd || '';
+//   document.getElementById('hid_address_after').value= delivery.address_after || '';
+
+//   // 2. 表示エリアの HTML をきれいに整形して作成
+//   const displayArea = document.getElementById('selected-delivery-info');
+  
+//   if (!delivery.delivno) {
+//     displayArea.innerHTML = '<span class="text-muted">配送先が選択されていません。</span>';
+//     return;
+//   }
+
+//   // 郵便番号のフォーマット整形（例: "8100001" ➔ "〒810-0001"）
+//   const formattedZip = formatZipCode(delivery.address_cd);
+
+//   // 画面表示用のHTML組み立て
+//   displayArea.innerHTML = `
+//     <div class="delivery-card p-3 bg-white border rounded shadow-sm">
+//       <div class="d-flex align-items-center mb-1">
+//         <span class="badge bg-primary me-2">選択中</span>
+//         <strong class="fs-6 me-2">${escapeHtml(delivery.delivmei)}</strong> 様
+//       </div>
+//       <div class="text-secondary small">
+//         <div><i class="bi bi-geo-alt me-1"></i>${formattedZip} ${escapeHtml(delivery.address_after)}</div>
+//         <div><i class="bi bi-telephone me-1"></i>TEL: ${escapeHtml(delivery.delivery_tel || '未登録')}</div>
+//       </div>
+//     </div>
+//   `;
+// }
+
+// 郵便番号をハイフン付き（〒xxx-xxxx）に整形する補助関数
+function formatZipCode(zip) {
+  if (!zip) return '';
+  const cleanZip = zip.toString().replace(/-/g, '');
+  if (cleanZip.length === 7) {
+    return `〒${cleanZip.slice(0, 3)}-${cleanZip.slice(3)}`;
+  }
+  return `〒${cleanZip}`;
+}
+
+// XSS対策用のエスケープ関数
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ★ ページ読み込み時に、前回の郵便番号がすでにセットされている場合は自動で検索関数を実行する
+document.addEventListener('DOMContentLoaded', () => {
+  const postalInput = document.getElementById('new_zip');
+  if (postalInput && postalInput.value.trim() !== "") {
+    searchAddressByZip(postalInput.value.trim(), savedAddressCd);
+  }
+});
+
+</script>

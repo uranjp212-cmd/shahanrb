@@ -15,7 +15,10 @@ class LoginController < ApplicationController
     if shain && shain.valid_password?(password)
       # ログイン成功
       session[:shain_id] = shain.shaincd
-      redirect_to new_order_path, notice: "ログインしました。"
+      session.delete(:sale_draft)
+      # redirect_to new_order_path, notice: "ログインしました。"
+      # redirect_to new_order_path
+      redirect_to index_sale_path
     else
       # ログイン失敗
       flash.now[:alert] = "社員コードまたはパスワードが正しくありません。"
@@ -25,6 +28,7 @@ class LoginController < ApplicationController
 
   def destroy
     session.delete(:shain_id)
+    session.delete(:sale_draft)
     redirect_to login_path, notice: "ログアウトしました。"
   end
 end
