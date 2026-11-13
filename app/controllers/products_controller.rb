@@ -123,8 +123,8 @@ class ProductsController < ApplicationController
     #   color_size_map[c][s] = p.baika
     # end
     products.each do |p|
-      colorcd = p.procolcd.to_s.presence || " "
-      sizecd = p.prosizecd.to_s.presence || " "
+      colorcd = p.colorcd.to_s.presence || " "
+      sizecd = p.sizecd.to_s.presence || " "
       # 社員割引価格
       baika = p.baika * SHA_WARIRT
       baika = p.baika - baika.to_i
