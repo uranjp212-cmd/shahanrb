@@ -23,7 +23,9 @@
     </div>
   <% end %>
   <p ></p>
-  <%= form_with(url: sale_path, local: true, data: { turbo: false }, id: "order-form") do |f| %>
+  <%= form_with(url: sale_path, local: true, data: { turbo: false },
+        html: { onsubmit: "return validateSaleItems(event);" },
+        id: "order-form") do |f| %>
     <input type="hidden" name="juchuno" value="<%= @juchuno %>">
     <input type="hidden" name="is_edit" value="<%= @is_edit %>">
     <%# 受取区分選択 %>
@@ -278,6 +280,85 @@
   //   }
   // });
 
+  function validateSaleItems(event) {
+    let hasError = false;
+    const rows = document.querySelectorAll('.item-row');
+
+    debugger;
+    // for (const row of rows) {
+    document.querySelectorAll('.item-row').forEach(row => {
+      // 要素の取得
+      const itemCdInput = row.querySelector('.input-item_cd');
+      const colorInput  = row.querySelector('.select-color');
+      const sizeInput   = row.querySelector('.select-size');
+
+      const itemCd = itemCdInput ? itemCdInput.value.trim() : "";
+      const color  = colorInput ? colorInput.value.trim() : "";
+      const size   = sizeInput ? sizeInput.value.trim() : "";
+      // 品番が入力されている場合のみチェック
+      if (itemCd !== "") {
+        // 未選択が "" または "-" の場合をエラーとする
+        if (color === "-") {
+          alert(`${i + 1}行目: カラーが未選択です。カラーを選択してください。`);
+          hasError = true;
+        }
+        if (size === "-") {
+          alert(`${i + 1}行目: サイズが未選択です。サイズを選択してください。`);
+          hasError = true;
+        }
+      }
+    // }
+    });
+    if (hasError) {
+      // フォームの送信をガッチリとストップする
+      if (event) {
+        event.preventDefault();
+      }
+      return false;
+    }
+    return true;
+  }
+
+//   function validateSaleItems(event) {
+//     let hasError = false;
+// debugger;
+//     // ※前提: window.valid_items やフォームのDOM要素からデータを取得する
+//     // 例として、JS側に渡されている valid_items を想定
+//     const items = typeof valid_items !== 'undefined' ? valid_items : [];
+
+//     for (let i = 0; i < items.length; i++) {
+//       const item = items[i];
+//       const itemCd = item.item_cd ? item.item_cd.trim() : "";
+//       const color = item.color ? item.color.trim() : "";
+//       const size = item.size ? item.size.trim() : "";
+
+//       // 品番が入力されている場合のみチェック
+//       if (itemCd !== "") {
+//         // 未選択が "" または "-" の場合をエラーとする
+//         if (color === "" || color === "-") {
+//           alert(`${i + 1}行目: カラーが未選択です。カラーを選択してください。`);
+//           hasError = true;
+//           break; // エラーが見つかったらループを抜ける
+//         }
+//         if (size === "" || size === "-") {
+//           alert(`${i + 1}行目: サイズが未選択です。サイズを選択してください。`);
+//           hasError = true;
+//           break; // エラーが見つかったらループを抜ける
+//         }
+//       }
+//     }
+
+//     if (hasError) {
+//       // フォームの送信をガッチリとストップする
+//       if (event) {
+//         event.preventDefault();
+//       }
+//       return false;
+//     }
+    
+//     return true;
+//   }
+
   // ① 品番入力時（フォーカスが外れた時）
   async function onHinbanBlur(inputEl) {
     const row = inputEl.closest('tr');
@@ -330,7 +411,7 @@
         // ★ パターン②：カラーの選択が必要な場合
         } else {
           rowProductDataMap.set(row, data.color_size_map);
-          colorSelect.innerHTML = '<option value=" ">-</option>';
+          colorSelect.innerHTML = '<option value="-">-</option>';
           data.colors.forEach(color => {
             const opt = document.createElement('option');
             opt.value = color;
@@ -351,7 +432,7 @@
           // カラー欄が固定であればサイズ欄のリストを設定
           const sizeList = data.color_size_map[colors[0]];
           rowProductDataMap.set(row, data.color_size_map);
-          sizeSelect.innerHTML = '<option value=" ">-</option>';
+          sizeSelect.innerHTML = '<option value="-">-</option>';
           sizeList.forEach(item => {
               const opt = document.createElement('option');
               opt.value = item.size;

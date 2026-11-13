@@ -229,7 +229,9 @@ class SaleController < ApplicationController
 
     if valid_items.empty?
       p "render step01"
-      flash.now[:alert] = "明細を1件以上入力してください。"
+      draft_data = (session[:sale_draft] || {}).with_indifferent_access
+      @selected_delivery = draft_data[:delivery] || {}
+        flash.now[:alert] = "明細を1件以上入力してください。"
       @inputdtls = items_params
       if params[:is_edit] == "true"
         return render :edit, status: :unprocessable_entity
@@ -257,20 +259,37 @@ class SaleController < ApplicationController
     # ② 明細データ確認（各行ループ）
     valid_items.each_with_index do |item_data, index|
       code = item_data[:item_cd].to_s.strip
+      color = item_data[:color].to_s.strip
+      size = item_data[:size].to_s.strip
+      errflg = 0
 
       gyo = index + 1
-      p "baika=" + item_data[:baika].to_s.strip
+      p "create chkStep01 baika=" + item_data[:baika].to_s.strip
       # 5,6桁チェックバリデーション
       if not code.match?(/\A\d{5,6}\z/)
         p "render step03"
         flash.now[:alert] = gyo.to_s + "行目 商品コードは半角数字5桁または6桁で入力して下さい。"
+        errflg = 1
+      end
+      p "create chkStep02"
+      if color == "-" || size == "-"
+        flash.now[:alert] = "#{index + 1}行目のカラーまたはサイズが未選択です。"
+        errflg = 1
+      end      
+      p "create chkStep03"
+      if errflg > 0
+        draft_data = (session[:sale_draft] || {}).with_indifferent_access
+        @selected_delivery = draft_data[:delivery] || {}
         @inputdtls = items_params
         if params[:is_edit] == "true"
+          p "create chkStep04-1"
           return render :edit, status: :unprocessable_entity
         else
+          p "create chkStep04-2"
           return render :new, status: :unprocessable_entity
         end
       end
+      p "create chkStep05"
     end
 
     # # 5,6桁チェックバリデーション
