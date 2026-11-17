@@ -1,5 +1,5 @@
 <div class="order-container">
-  <h2>社販受注 <%= @is_edit ? "修正画面" : "登録画面" %></h2>
+  <h2>社販受注 <%= @is_edit.to_s == "true" ? "修正画面" : "登録画面" %></h2>
 <!-- これはHTMLコメントです。二重化すると両方コメントとなる
 <%# これはERBコメントです。ブラウザのHTMLソースには表示されません
   <p> val_readonly=<%= @val_readonly %></p>
@@ -17,7 +17,7 @@
   <% end %>
   <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:shainmei) %></p>
 
-  <% if @is_edit and !@is_completed %>
+  <% if @is_edit.to_s == "true" and !@is_completed and !@is_error %>
     <div class="alert alert-info" style="background-color: #e8f4f8; color: #1d6f8a; border-color: #bce8f1; padding: 10px; margin-bottom: 15px;">
       ※ 内容を変更して「更新する」を押すと上書き保存されます。
     </div>
@@ -32,9 +32,11 @@
     <div class="form-group">
       <%= f.label :receipt_type, "受取区分", class: "fw-bold" %>
       <%= f.radio_button :receipt_type, "takeout",
+            name: "receipt_type",
             checked: (@receipt_type != 'delivery'), 
             onchange: "toggleDeliveryButton()" %> 持ち帰り
       <%= f.radio_button :receipt_type, "delivery",
+            name: "receipt_type",
             checked: (@receipt_type == 'delivery'), 
             onchange: "toggleDeliveryButton()" %> 配送
     </div>
@@ -133,7 +135,7 @@
             <td>
               <div style="display: flex; gap: 4px; align-items: center;">
               <!-- 1. 品番・カラー・サイズエリア -->
-                <% if @is_completed || @is_edit %>
+                <% if @is_completed || @is_edit.to_s == "true" %>
                   <input type="text" 
                         name="items[][item_cd]" 
                         value="<%= item[:item_cd] %>"
@@ -231,7 +233,7 @@
         <button type="button" id="btn-add-row" class="btn-secondary" onclick="addRow()">+ 行を追加する</button>
       </div>
       <div class="form-actions">
-        <%= f.submit (@is_edit ? "受注内容を更新する" : "受注を確定する"), class: "btn-primary" %>
+        <%= f.submit (@is_edit.to_s == "true" ? "受注内容を更新する" : "受注を確定する"), class: "btn-primary" %>
       </div>
     <% end %>
   <% end %>
@@ -263,6 +265,9 @@
   window.TAX_RATE_MAP = <%= raw (@tax_rate_map || {}).to_json %>;
   // 品番がreadonly
   codereadonly = false;
+  // 配送情報入力フラグをJavaScriptへ渡す
+  // window.sessionReceiptType = "<%= session.dig(:sale_draft, :receipt_type) || @receipt_type %>";
+  window.deliveryConfirmed = <%= session.dig(:sale_draft, :delivery, :confirmed) || @delivery_confirmed ? 'true' : 'false' %>;
 
   // 画面読み込み完了時に自動計算を実行
   document.addEventListener('turbo:load', async function() {
@@ -279,35 +284,71 @@
   //     toggleDeliverySection(selectedRadio);
   //   }
   // });
+  document.addEventListener('DOMContentLoaded', () => {
+    // 1. ページ読み込み時（エラー再表示時や修正画面）の処理
+    document.querySelectorAll('.item-row').forEach(row => {
+      const itemCdInput = row.querySelector('.input-item_cd');
+      if (itemCdInput) {
+        const itemCd = itemCdInput.value.trim();
+        // すでに品番が入力されている場合（エラー再表示や編集時）
+        if (itemCd !== "") {
+          // 品番に対応するカラー・サイズの候補をサーバーから取得してセレクトボックスに再セットする関数を呼ぶ
+          onHinbanBlur(itemCdInput);
+        }
+      }
+    });
+
+    // 2. 通常の品番変更時のイベント（従来通り）
+    document.addEventListener('change', (event) => {
+// debugger;
+      if (event.target.classList.contains('input-item_cd')) {
+        // const row = event.target.closest('.item-row');
+        const itemCdInput = event.target;
+        // 品番が変わったので、カラー・サイズは初期状態（""）で候補を再取得
+        onHinbanBlur(itemCdInput);
+      }
+    });
+  });
 
   function validateSaleItems(event) {
     let hasError = false;
     const rows = document.querySelectorAll('.item-row');
 
-    debugger;
-    // for (const row of rows) {
+    // debugger;
+    // A. 画面上の受取区分要素、またはセッション変数から受取区分を取得
+    const receiptTypeInput = document.querySelector('input[name="receipt_type"]:checked');
+    const receiptType = receiptTypeInput ? receiptTypeInput.value : null;
+    // B. 配送確認フラグ（セッションから渡された値）
+    const isDeliveryConfirmed = window.deliveryConfirmed;
+    // C. 受取区分が「配送」（例: "delivery" やコード値）かつ、配送情報が未完了の場合
+    if (receiptType === 'delivery' && !isDeliveryConfirmed) {
+      alert('受取区分が「配送」に設定されていますが、配送情報の入力・確認が完了していません。');
+      hasError = true;
+    }
+
     document.querySelectorAll('.item-row').forEach(row => {
       // 要素の取得
-      const itemCdInput = row.querySelector('.input-item_cd');
+      // const itemCdInput = row.querySelector('.input-item_cd');
       const colorInput  = row.querySelector('.select-color');
       const sizeInput   = row.querySelector('.select-size');
+      const rownumberEl = row.querySelector('.row-number');
 
-      const itemCd = itemCdInput ? itemCdInput.value.trim() : "";
+      // const itemCd = itemCdInput ? itemCdInput.value.trim() : "";
       const color  = colorInput ? colorInput.value.trim() : "";
       const size   = sizeInput ? sizeInput.value.trim() : "";
+      const rownum = rownumberEl ? rownumberEl.innerText : 0;
       // 品番が入力されている場合のみチェック
-      if (itemCd !== "") {
+      // if (itemCd !== "") {
         // 未選択が "" または "-" の場合をエラーとする
         if (color === "-") {
-          alert(`${i + 1}行目: カラーが未選択です。カラーを選択してください。`);
+          alert(`${rownum}行目: カラーが未選択です。カラーを選択してください。`);
           hasError = true;
         }
         if (size === "-") {
-          alert(`${i + 1}行目: サイズが未選択です。サイズを選択してください。`);
+          alert(`${rownum}行目: サイズが未選択です。サイズを選択してください。`);
           hasError = true;
         }
-      }
-    // }
+      // }
     });
     if (hasError) {
       // フォームの送信をガッチリとストップする

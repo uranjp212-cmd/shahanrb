@@ -173,6 +173,7 @@ class SaleController < ApplicationController
     items_params = params[:items] || []
     valid_items = items_params.reject { |item| item[:item_cd].blank? }
     # @selected_delivery = draft_data[:delivery] || {}
+    @is_edit = (params[:is_edit] == "true")
     receipt_type = params[:receipt_type]
     p "receipt_type=" + receipt_type.to_s
     # p "selection_type=" + @selected_delivery[:selection_type].to_s
@@ -233,6 +234,7 @@ class SaleController < ApplicationController
       @selected_delivery = draft_data[:delivery] || {}
         flash.now[:alert] = "明細を1件以上入力してください。"
       @inputdtls = items_params
+      @is_error = true
       if params[:is_edit] == "true"
         return render :edit, status: :unprocessable_entity
       else
@@ -281,6 +283,7 @@ class SaleController < ApplicationController
         draft_data = (session[:sale_draft] || {}).with_indifferent_access
         @selected_delivery = draft_data[:delivery] || {}
         @inputdtls = items_params
+        @is_error = true
         if params[:is_edit] == "true"
           p "create chkStep04-1"
           return render :edit, status: :unprocessable_entity
@@ -434,6 +437,7 @@ class SaleController < ApplicationController
 
     # ★ 登録成功時：そのままの入力表示を維持し、登録完了フラグを立てる
     @is_edit = true
+    @is_error = false
     @is_completed = true # 登録完了状態フラグ
     @val_readonly = true
     # flash.now[:notice] = "社販受注の登録が完了しました。"
