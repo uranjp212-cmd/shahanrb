@@ -194,7 +194,7 @@ class SaleController < ApplicationController
       0 # 未入力の場合のデフォルト値
     end
     # dlvappbi = params.dig(:dlvappbi) || 0
-    dlvkbn = params.dig(:dlvkbn) || " "
+    dlvkbn = params.dig(:dlvkbn).presence || " "
     p "dlvappbi=" + dlvappbi.to_s
     delivno = "0"
     delivmei = params[:delivmei]
@@ -202,7 +202,7 @@ class SaleController < ApplicationController
     address_after = params[:address_after].to_s
     zipno = params[:zipno]
     address_cd = params[:address_cd]
-    delivnoshop = params[:delivno] || "0"
+    delivnoshop = params[:delivno].to_i
 
     adrcd1 = " "
     adrcd2 = " "
@@ -738,6 +738,21 @@ class SaleController < ApplicationController
           dlvappbi: @shahanhdr.dlvappbi,
           dlvkbn: @shahanhdr.dlvkbn
           }
+          # draft = (session[:sale_draft] || {}).with_indifferent_access
+          # delivery = draft[:delivery] || {}
+          # delivery = {
+          #   confirmed: false,
+          #   selection_type: selection_type || "NONE",
+          #   delivno: @shahanhdr.delivnoshop || 0,
+          #   delivmei: delivmei || "",
+          #   delivery_tel: shahandlv.present? ? shahandlv.ntelno : "",
+          #   address_cd: @shahanhdr.adrcd || "",
+          #   address_after: @shahanhdr.adr2 || "",
+          #   zipno: shahandlv.present? ? shahandlv.zipno : "",
+          #   dlvappbi: @shahanhdr.dlvappbi,
+          #   dlvkbn: @shahanhdr.dlvkbn
+          # }
+          # session[:sale_draft] = draft    
       end
       # 既存の明細を取得して表示用配列を作成
       @inputdtls = @shahanhdr.shahandtls.order(:juchugyo).map do |dtl|
@@ -798,7 +813,11 @@ class SaleController < ApplicationController
         todokesaki = Ff2::Todokesaki.find_by(kyakuno: kyakuno, delivno: hdr.delivnoshop)
         delivmei = todokesaki.delivmei
       end
-      hinmeir = Mpls::Shahandtl.find_by(shaincd: shaincd, juchuno: 1).hinmeir
+      # hinmeir = Mpls::Shahandtl.find_by(shaincd: shaincd, juchuno: hdr.juchuno, juchugyo: 1).hinmeir
+      shahandtl = Mpls::Shahandtl.where(shaincd: hdr.shaincd, juchuno: hdr.juchuno)
+      .order(:juchugyo)
+      .first
+      hinmeir = shahandtl&.hinmeir
       order = {
         juchuno: hdr.juchuno,
         total_amount: hdr.shahandtls.sum { |dtl| dtl.juchugak + dtl.juchutax },

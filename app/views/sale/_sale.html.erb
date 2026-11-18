@@ -52,11 +52,16 @@
           配送先を選択・変更する
         </button>
         <label id="dlv1" style="margin-left: 40px;">お届け日&nbsp;
+        <!-- これはHTMLコメントです。二重化すると両方コメントとなる
+        <%# これはERBコメントです。ブラウザのHTMLソースには表示されません
           <input type="date" id="dlv2" name="dlvappbi" value="<%= @selected_delivery[:dlvappbi].presence || session[:sale_draft]&.dig(:dlvappbi) %>">
+        %>
+        -->
+          <input type="date" id="dlv2" name="dlvappbi" value="<%= session[:sale_draft]&.dig('delivery', 'dlvappbi') || @selected_delivery[:dlvappbi].presence %>">
         </label>
         <label id="dlv3">&nbsp;&nbsp;&nbsp;時間帯指定&nbsp;
           <%= f.select :dlvkbn, 
-                      options_for_select(@dlvkbn_options, @selected_delivery[:dlvkbn].presence || session[:sale_draft]&.dig(:dlvkbn)), 
+                      options_for_select(@dlvkbn_options, session[:sale_draft]&.dig('delivery', :dlvkbn) || @selected_delivery[:dlvkbn].presence), 
                       { include_blank: "指定なし" }, 
                       { class: "form-select form-select-sm", id: "select-dlvkbn" } %>
         </label>
@@ -268,6 +273,11 @@
   // 配送情報入力フラグをJavaScriptへ渡す
   // window.sessionReceiptType = "<%= session.dig(:sale_draft, :receipt_type) || @receipt_type %>";
   window.deliveryConfirmed = <%= session.dig(:sale_draft, :delivery, :confirmed) || @delivery_confirmed ? 'true' : 'false' %>;
+  // // RailsのセッションからdeliveryのハッシュをJSONとして安全にJavaScriptに渡す
+  // window.saleDeliveryData = <%= raw (session.dig(:sale_draft, :delivery) || {}).to_json %>;
+    // コントローラーの @selected_delivery を JavaScript のオブジェクトとして受け渡す
+  window.saleDeliveryData = <%= raw (@selected_delivery || {}).to_json %>;
+
 
   // 画面読み込み完了時に自動計算を実行
   document.addEventListener('turbo:load', async function() {
@@ -314,16 +324,24 @@
     let hasError = false;
     const rows = document.querySelectorAll('.item-row');
 
-    // debugger;
+    debugger;
     // A. 画面上の受取区分要素、またはセッション変数から受取区分を取得
     const receiptTypeInput = document.querySelector('input[name="receipt_type"]:checked');
     const receiptType = receiptTypeInput ? receiptTypeInput.value : null;
     // B. 配送確認フラグ（セッションから渡された値）
     const isDeliveryConfirmed = window.deliveryConfirmed;
     // C. 受取区分が「配送」（例: "delivery" やコード値）かつ、配送情報が未完了の場合
-    if (receiptType === 'delivery' && !isDeliveryConfirmed) {
-      alert('受取区分が「配送」に設定されていますが、配送情報の入力・確認が完了していません。');
-      hasError = true;
+    // if (receiptType === 'delivery' && !isDeliveryConfirmed) {
+    //   alert('受取区分が「配送」に設定されていますが、配送情報の入力・確認が完了していません。');
+    //   hasError = true;
+    // }
+    if (receiptType === 'delivery') {
+      // 修正時などで delivery.confirmed が false でも、項目がセッション等に揃っていればOKとする判定
+      const deliveryErrorMsg = validateDeliveryInfo();
+      if (!isDeliveryConfirmed && deliveryErrorMsg !== null) {
+        alert(deliveryErrorMsg);
+        hasError = true;
+      }
     }
 
     document.querySelectorAll('.item-row').forEach(row => {
@@ -577,8 +595,7 @@
     // 行小計および総合計の自動再計算
     calculateRowAndTotal();
   }
-
-    // 表示リセット用の関数
+  // 表示リセット用の関数
   function resetRow(row) {
     const colorSelect = row.querySelector('.select-color');
     const sizeSelect = row.querySelector('.select-size');
@@ -696,75 +713,72 @@
     });
   }
 
-document.getElementById('order-form').addEventListener('submit', function(e) {
-  const codeInputs = document.querySelectorAll('.input-item-cd');
-  let hasValidInput = false;
+  document.getElementById('order-form').addEventListener('submit', function(e) {
+    const codeInputs = document.querySelectorAll('.input-item-cd');
+    let hasValidInput = false;
+    // debugger;
+    // alert("明細入力チェックを通過しました！");
+    codeInputs.forEach(input => {
+      if (input.value.trim() !== '') {
+        hasValidInput = true;
+      }
+    });
+    // 1件も商品コードが入力されていない場合は送信をストップ
+    // if (!hasValidInput) {
+    //   e.preventDefault();
+    //   alert('明細を1件以上入力してください。');
+    // }
+  });
 
-  // debugger;
-  // alert("明細入力チェックを通過しました！");
+  // 明細金額および合計金額を計算する関数
+  function calculateRowAndTotal() {
+    let grandTotalProductPrice = 0;
+    document.querySelectorAll('.item-row').forEach(row => {
+      // 要素の取得
+      const baikaHidden        = row.querySelector('.item-baika-hidden');
+      const zeirtkbnHidden      = row.querySelector('.item-zeirtkbn-hidden');
+      const quantityInput      = row.querySelector('.item-quantity-input');
 
-  codeInputs.forEach(input => {
-    if (input.value.trim() !== '') {
-      hasValidInput = true;
+      const taxAmountHidden    = row.querySelector('.item-juchutax-hidden');
+      const productPriceText   = row.querySelector('.item-price-input');
+      const subtotalText       = row.querySelector('.item-subtotal');
+
+      const priceEl = row.querySelector('.product-price');
+
+      // １．単価 baika と 税率区分 zertkbn の取得
+      const baika    = parseFloat(baikaHidden?.value) || 0;
+      const zertkbn  = zeirtkbnHidden?.value || '0';
+      const quantity = parseFloat(quantityInput?.value) || 0;
+
+      // ２．コード名称マスタから税率 zeirt を取得
+      const zeirt = TAX_RATE_MAP[zertkbn] ?? 0.10;
+
+      // 2.5．税込単価 = baika * zeirt（端数切り捨て）
+      const taxBaika = Math.floor(baika * zeirt);
+      const price = baika + taxBaika;
+      if (productPriceText)   productPriceText.textContent = price.toLocaleString();
+      priceEl.textContent = price.toLocaleString();
+      priceEl.dataset.price = price;
+
+      // ３．税額 = baika * zeirt * 数量（端数切り捨て）
+      const taxAmount = Math.floor(baika * zeirt) * quantity;
+
+      // ４．税込み額 product-price = baika * 数量 + 税額
+      const productPrice = (baika * quantity) + taxAmount;
+
+      // 算出結果を隠しフィールドと画面表示に反映
+      if (taxAmountHidden)    taxAmountHidden.value = taxAmount;
+      if (subtotalText)   subtotalText.textContent = productPrice.toLocaleString();
+
+      grandTotalProductPrice += productPrice;
+    });
+
+    // 画面下部の総合計表示を更新
+    const totalAmountEl = document.getElementById('total-amount');
+    if (totalAmountEl) {
+      totalAmountEl.textContent = grandTotalProductPrice.toLocaleString();
     }
-  });
-
-  // 1件も商品コードが入力されていない場合は送信をストップ
-  // if (!hasValidInput) {
-  //   e.preventDefault();
-  //   alert('明細を1件以上入力してください。');
-  // }
-});
-
-// 明細金額および合計金額を計算する関数
-function calculateRowAndTotal() {
-  let grandTotalProductPrice = 0;
-  document.querySelectorAll('.item-row').forEach(row => {
-    // 要素の取得
-    const baikaHidden        = row.querySelector('.item-baika-hidden');
-    const zeirtkbnHidden      = row.querySelector('.item-zeirtkbn-hidden');
-    const quantityInput      = row.querySelector('.item-quantity-input');
-
-    const taxAmountHidden    = row.querySelector('.item-juchutax-hidden');
-    const productPriceText   = row.querySelector('.item-price-input');
-    const subtotalText       = row.querySelector('.item-subtotal');
-
-    const priceEl = row.querySelector('.product-price');
-
-    // １．単価 baika と 税率区分 zertkbn の取得
-    const baika    = parseFloat(baikaHidden?.value) || 0;
-    const zertkbn  = zeirtkbnHidden?.value || '0';
-    const quantity = parseFloat(quantityInput?.value) || 0;
-
-    // ２．コード名称マスタから税率 zeirt を取得
-    const zeirt = TAX_RATE_MAP[zertkbn] ?? 0.10;
-
-    // 2.5．税込単価 = baika * zeirt（端数切り捨て）
-    const taxBaika = Math.floor(baika * zeirt);
-    const price = baika + taxBaika;
-    if (productPriceText)   productPriceText.textContent = price.toLocaleString();
-    priceEl.textContent = price.toLocaleString();
-    priceEl.dataset.price = price;
-
-    // ３．税額 = baika * zeirt * 数量（端数切り捨て）
-    const taxAmount = Math.floor(baika * zeirt) * quantity;
-
-    // ４．税込み額 product-price = baika * 数量 + 税額
-    const productPrice = (baika * quantity) + taxAmount;
-
-    // 算出結果を隠しフィールドと画面表示に反映
-    if (taxAmountHidden)    taxAmountHidden.value = taxAmount;
-    if (subtotalText)   subtotalText.textContent = productPrice.toLocaleString();
-
-    grandTotalProductPrice += productPrice;
-  });
-
-  // 画面下部の総合計表示を更新
-  const totalAmountEl = document.getElementById('total-amount');
-  if (totalAmountEl) {
-    totalAmountEl.textContent = grandTotalProductPrice.toLocaleString();
   }
-}
 
 // function calculateRowAndTotal() {
 //   let totalSum = 0;
@@ -800,12 +814,12 @@ function calculateRowAndTotal() {
 //   }
 // }
 
-// 数量入力時に計算を実行
-document.addEventListener('input', function(e) {
-  if (e.target.classList.contains('item-quantity-input')) {
-    calculateRowAndTotal();
-  }
-});
+  // 数量入力時に計算を実行
+  document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('item-quantity-input')) {
+      calculateRowAndTotal();
+    }
+  });
 
 // function toggleDeliverySection(radio) {
 //   debugger;
@@ -831,112 +845,142 @@ document.addEventListener('input', function(e) {
 //   document.getElementById('selected-delivery-info').textContent = '配送先が選択されていません。';
 // }
 
-// Rails の @tax_rate_table を JSON 化して JS に渡す
-var TAX_RATE_TABLE = <%= raw @tax_rate_table.to_json %>;
+  // Rails の @tax_rate_table を JSON 化して JS に渡す
+  var TAX_RATE_TABLE = <%= raw @tax_rate_table.to_json %>;
 
-// 税率区分コードから計算用小数（0.10 など）を取得する関数
-function getTaxRateByKbn(taxKbn) {
-  const target = TAX_RATE_TABLE.find(item => item.tax_kbn === taxKbn);
-  return target ? target.tax_rate : 0.10; // 該当なしはデフォルト 10%
-}
-
-// 計算例：単価 × 数量 × (1 + 税率)
-function calculateTaxIncluded(price, qty, taxKbn) {
-  const rate = getTaxRateByKbn(taxKbn);
-  const subtotalNoTax = price * qty;
-  const taxAmount = Math.floor(subtotalNoTax * rate); // 端数切り捨ての場合
-  return subtotalNoTax + taxAmount;
-}
-
-// 受取区分の変更時に配送先ボタンの有効/無効、および表示エリアを切り替える
-function toggleDeliveryButton() {
-  const deliveryRadio = document.querySelector('input[name="receipt_type"][value="delivery"]');
-  const deliveryBtn = document.getElementById('delivery-btn');
-  const deliveryDisplayArea = document.getElementById('delivery-display-area');
-
-  if (deliveryRadio.checked) {
-    deliveryBtn.removeAttribute('disabled'); // 有効化
-    if (deliveryDisplayArea.innerHTML.trim() !== "") {
-      deliveryDisplayArea.style.display = 'block';
-    }
-  } else {
-    deliveryBtn.setAttribute('disabled', 'true'); // 無効化
-    deliveryDisplayArea.style.display = 'none';   // 非表示
+  // 税率区分コードから計算用小数（0.10 など）を取得する関数
+  function getTaxRateByKbn(taxKbn) {
+    const target = TAX_RATE_TABLE.find(item => item.tax_kbn === taxKbn);
+    return target ? target.tax_rate : 0.10; // 該当なしはデフォルト 10%
   }
-}
 
-function saveDraftAndRedirect() {
-  // フォーム全体の要素を取得
-  const form = document.getElementById('order-form');
-  const formData = new FormData(form);
+  // 計算例：単価 × 数量 × (1 + 税率)
+  function calculateTaxIncluded(price, qty, taxKbn) {
+    const rate = getTaxRateByKbn(taxKbn);
+    const subtotalNoTax = price * qty;
+    const taxAmount = Math.floor(subtotalNoTax * rate); // 端数切り捨ての場合
+    return subtotalNoTax + taxAmount;
+  }
 
-  // Railsのメタタグから CSRF トークンを確実に取得
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+  // 受取区分の変更時に配送先ボタンの有効/無効、および表示エリアを切り替える
+  function toggleDeliveryButton() {
+    const deliveryRadio = document.querySelector('input[name="receipt_type"][value="delivery"]');
+    const deliveryBtn = document.getElementById('delivery-btn');
+    const deliveryDisplayArea = document.getElementById('delivery-display-area');
 
-  // fetchでバックグラウンド送信（セッションに一時保存）
-  fetch('<%= save_draft_and_redirect_sale_index_path %>', {
-    method: 'POST',
-    headers: {
-      'X-CSRF-Token': csrfToken,
-      'Accept': 'application/json'
-    },
-    body: formData
-  })
-  .then(response => {
-    if (response.ok) {
-      // 保存に成功したら配送先選択画面へ遷移
-      // window.location.href = '<%= delivery_input_sale_index_path %>';
-      // window.saleMode に応じて遷移先のURLを動的に組み立てる
-      let deliveryUrl = '<%= delivery_input_sale_index_path %>';
-      if (window.saleMode === 'edit' && window.targetJuchuno) {
-        // 修正モードの場合：mode=edit と juchuno を付与
-        deliveryUrl += `?mode=edit&juchuno=${window.targetJuchuno}`;
-      } else {
-        // 新規モードの場合：mode=new を付与
-        deliveryUrl += '?mode=new';
+    if (deliveryRadio.checked) {
+      deliveryBtn.removeAttribute('disabled'); // 有効化
+      if (deliveryDisplayArea.innerHTML.trim() !== "") {
+        deliveryDisplayArea.style.display = 'block';
       }
-      // 配送先画面へ遷移
-      window.location.href = deliveryUrl;
     } else {
-      alert('一時保存に失敗しました。');
+      deliveryBtn.setAttribute('disabled', 'true'); // 無効化
+      deliveryDisplayArea.style.display = 'none';   // 非表示
     }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert('通信エラーが発生しました。');
-  });
-}
+  }
 
-// 商品名を取得する関数
-async function getHinmei() {
-  const rows = document.querySelectorAll('.item-row');
-  
-  // for...of ループを使うことで、ループ内で安全に await が使えるようになります
-  for (const row of rows) {
-    // 要素の取得
-    const hinbanInput = row.querySelector('.input-item_cd');
-    const nameSpan    = row.querySelector('.product-name'); // 商品名を表示する要素
-    const hinmeirSpan = row.querySelector('.item-hinmeir-hidden');
-    
-    const hinban = hinbanInput ? hinbanInput.value.trim() : '';
+  function saveDraftAndRedirect() {
+    // フォーム全体の要素を取得
+    const form = document.getElementById('order-form');
+    const formData = new FormData(form);
 
-    // 品番等がある場合、サーバーから商品名を取得して表示を更新する
-    if (hinban.length > 0) {
-      try {
-        const response = await fetch(`/products/search_by_hinban?hinban=${encodeURIComponent(hinban)}`);
-        const data = await response.json();
+    // Railsのメタタグから CSRF トークンを確実に取得
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
-        if (data.found && nameSpan) {
-          nameSpan.textContent = data.name; // 取得した商品名をセット
-          hinmeirSpan.value = data.name;
-        } else if (nameSpan) {
-          nameSpan.textContent = '（商品が見つかりません）';
+    // fetchでバックグラウンド送信（セッションに一時保存）
+    fetch('<%= save_draft_and_redirect_sale_index_path %>', {
+      method: 'POST',
+      headers: {
+        'X-CSRF-Token': csrfToken,
+        'Accept': 'application/json'
+      },
+      body: formData
+    })
+    .then(response => {
+      if (response.ok) {
+        // 保存に成功したら配送先選択画面へ遷移
+        // window.location.href = '<%= delivery_input_sale_index_path %>';
+        // window.saleMode に応じて遷移先のURLを動的に組み立てる
+        let deliveryUrl = '<%= delivery_input_sale_index_path %>';
+        if (window.saleMode === 'edit' && window.targetJuchuno) {
+          // 修正モードの場合：mode=edit と juchuno を付与
+          deliveryUrl += `?mode=edit&juchuno=${window.targetJuchuno}`;
+        } else {
+          // 新規モードの場合：mode=new を付与
+          deliveryUrl += '?mode=new';
         }
-      } catch (error) {
-        console.error('商品名取得エラー:', error);
+        // 配送先画面へ遷移
+        window.location.href = deliveryUrl;
+      } else {
+        alert('一時保存に失敗しました。');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('通信エラーが発生しました。');
+    });
+  }
+
+  // 商品名を取得する関数
+  async function getHinmei() {
+    const rows = document.querySelectorAll('.item-row');
+    
+    // for...of ループを使うことで、ループ内で安全に await が使えるようになります
+    for (const row of rows) {
+      // 要素の取得
+      const hinbanInput = row.querySelector('.input-item_cd');
+      const nameSpan    = row.querySelector('.product-name'); // 商品名を表示する要素
+      const hinmeirSpan = row.querySelector('.item-hinmeir-hidden');
+      
+      const hinban = hinbanInput ? hinbanInput.value.trim() : '';
+
+      // 品番等がある場合、サーバーから商品名を取得して表示を更新する
+      if (hinban.length > 0) {
+        try {
+          const response = await fetch(`/products/search_by_hinban?hinban=${encodeURIComponent(hinban)}`);
+          const data = await response.json();
+
+          if (data.found && nameSpan) {
+            nameSpan.textContent = data.name; // 取得した商品名をセット
+            hinmeirSpan.value = data.name;
+          } else if (nameSpan) {
+            nameSpan.textContent = '（商品が見つかりません）';
+          }
+        } catch (error) {
+          console.error('商品名取得エラー:', error);
+        }
       }
     }
   }
-}
+  // 配送情報の入力が完了しているかを判定する専用関数
+  function validateDeliveryInfo() {
+  debugger;
+    // window.saleDeliveryData からセッションの内容を取得
+    const deliveryData = typeof window.saleDeliveryData !== 'undefined' ? window.saleDeliveryData : {};
+    const selectionType = deliveryData.selection_type || 'new'; // 'new' または 'existing'
+    // // セッション変数や画面から渡された配送関連データを取得
+    // const draft = typeof window.sale_draft !== 'undefined' ? window.sale_draft : {};
+    // const deliveryData = draft.delivery;
+    // const selectionType = deliveryData.selection_type || 'new'; // 'new' または 'existing'
 
+    if (selectionType === 'new') {
+      // 新規作成時の必須チェック
+      const delivmei = (deliveryData.delivmei || "").trim();
+      const deliveryTel = (deliveryData.delivery_tel || "").trim();
+      const addressCd = (deliveryData.address_cd || "").trim();
+      const addressAfter = (deliveryData.address_after || "").trim();
+      const zipno = (deliveryData.zipno || "").trim();
+      if (!delivmei || !deliveryTel || !addressCd || !addressAfter || !zipno) {
+        return "新規配送情報の必須項目（お届け先名、電話番号、住所コード、住所、郵便番号）が未入力です。";
+      }
+    } else if (selectionType === 'existing') {
+      // 既存選択時の必須チェック
+      const delivno = (deliveryData.delivno || "").trim();
+      const delivmei = (deliveryData.delivmei || "").trim();
+      if (!delivno || !delivmei) {
+        return "既存のお届け先情報（お届け先番号、お届け先名）が選択・入力されていません。";
+      }
+    }
+    return null; // エラーなし
+  }
 </script>
