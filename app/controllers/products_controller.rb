@@ -105,34 +105,23 @@ class ProductsController < ApplicationController
       render json: { found: false, message: "該当する商品がありません" }
       return
     end
-
     p "search_by_hinban 商品マスタ" + hinban.to_s
     first_product = products.first
-
     # 重複を除いた全カラー・全サイズのリスト（空白も1つの要素として保持）
     all_colors = products.map { |p| p.colorcd.to_s.presence || " " }.uniq
     all_sizes  = products.map { |p| p.sizecd.to_s.presence || " " }.uniq
 
     # カラー・サイズ・単価のマッピングデータ
     color_size_map = {}
-    # products.each do |p|
-    #   c = p.colorcd.to_s.presence || " "
-    #   s = p.sizecd.to_s.presence || " "
-    #   # p "color_size_map", c, s
-    #   color_size_map[c] ||= {}
-    #   color_size_map[c][s] = p.baika
-    # end
     products.each do |p|
       colorcd = p.colorcd.to_s.presence || " "
       sizecd = p.sizecd.to_s.presence || " "
       # 社員割引価格
       baika = p.baika * SHA_WARIRT
       baika = p.baika - baika.to_i
-      # next if p.colorcd.blank?
       color_size_map[colorcd] ||= []
       color_size_map[colorcd] << { size: sizecd, price: baika }
     end
-
     # 社員割引価格
     baika = first_product.baika * SHA_WARIRT
     baika = first_product.baika - baika.to_i
@@ -148,29 +137,5 @@ class ProductsController < ApplicationController
       sizes: all_sizes,
       color_size_map: color_size_map
     }
-  end
-
-  # GET /products/search?code=123456
-  def search
-    item_cd = params[:code]&.strip
-
-    p "search in"
-
-    # 商品マスターから検索 (テーブル・カラム名は環境に合わせて変更してください)
-    # 例: M_SHOOHIN テーブル (SHOOHINCD, SHOOHINNAME, TANKA)
-    # product = Ff2::Shohin.find_by(HINBAN: item_cd, COLORCD: " ", SIZECD: " ")
-    product = Ff2::Shohin.find_by(HINBAN: item_cd)
-    if product
-      render json: {
-        found: true,
-        name: product.hinmeir,
-        price: product.baika
-      }
-    else
-      render json: {
-        found: false,
-        message: "該当する商品がありません"
-      }
-    end
   end
 end

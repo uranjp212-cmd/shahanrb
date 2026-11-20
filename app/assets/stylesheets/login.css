@@ -1,13 +1,21 @@
 .actions {
     display: flex;
-    justify-content: center; /* 中央に配置 */
+    margin-left: 140px;
+    /* justify-content: center;  中央に配置 */
     margin-top: 20px;
 }
 #btn-login {
     width: 100px;
-    border-color: blue;
+    border-color: #2c5bdb;
     /* outline-color: blue; */
     color: white;
-    background-color: blue;
+    background-color: #182bd4;
     text-align: center;
+}
+.text-login {
+    margin-left: 50px;
+    /* padding: 0px 0px 0px 100px; */
+}
+#input-login {
+    width: 80px;
 }

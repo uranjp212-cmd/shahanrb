@@ -277,7 +277,7 @@ class SaleController < ApplicationController
       if color == "-" || size == "-"
         flash.now[:alert] = "#{index + 1}行目のカラーまたはサイズが未選択です。"
         errflg = 1
-      end      
+      end
       p "create chkStep03"
       if errflg > 0
         draft_data = (session[:sale_draft] || {}).with_indifferent_access
@@ -566,8 +566,12 @@ class SaleController < ApplicationController
           delivno: addr.delivno,
           delivmei: addr.delivmei,
           tel: addr.ntelno,
-          full_address: addr.fulladr + addr.adr2.presence || "" + addr.adr3.presence || ""
-        }
+          # full_address: addr.fulladr + addr.adr2.presence || "" + addr.adr3.presence || ""
+          adrcd: addr.adrcd,
+          adr2: addr.adr23.presence || "",
+          full_address: addr.fulladr + "　" + addr.adr23.presence || "",
+          zipno: addr.zipno
+          }
       }
     end
     p "from=" + params[:from].to_s if params[:from].presence
@@ -727,6 +731,7 @@ class SaleController < ApplicationController
         # else
         #   ""
         # end
+        p "delivmei=" + delivmei.to_s
         @selected_delivery = {
           selection_type: selection_type || "NONE",
           delivno: @shahanhdr.delivnoshop || 0,
@@ -738,21 +743,21 @@ class SaleController < ApplicationController
           dlvappbi: @shahanhdr.dlvappbi,
           dlvkbn: @shahanhdr.dlvkbn
           }
-          # draft = (session[:sale_draft] || {}).with_indifferent_access
-          # delivery = draft[:delivery] || {}
-          # delivery = {
-          #   confirmed: false,
-          #   selection_type: selection_type || "NONE",
-          #   delivno: @shahanhdr.delivnoshop || 0,
-          #   delivmei: delivmei || "",
-          #   delivery_tel: shahandlv.present? ? shahandlv.ntelno : "",
-          #   address_cd: @shahanhdr.adrcd || "",
-          #   address_after: @shahanhdr.adr2 || "",
-          #   zipno: shahandlv.present? ? shahandlv.zipno : "",
-          #   dlvappbi: @shahanhdr.dlvappbi,
-          #   dlvkbn: @shahanhdr.dlvkbn
-          # }
-          # session[:sale_draft] = draft    
+        # draft = (session[:sale_draft] || {}).with_indifferent_access
+        # delivery = draft[:delivery] || {}
+        # delivery = {
+        #   confirmed: false,
+        #   selection_type: selection_type || "NONE",
+        #   delivno: @shahanhdr.delivnoshop || 0,
+        #   delivmei: delivmei || "",
+        #   delivery_tel: shahandlv.present? ? shahandlv.ntelno : "",
+        #   address_cd: @shahanhdr.adrcd || "",
+        #   address_after: @shahanhdr.adr2 || "",
+        #   zipno: shahandlv.present? ? shahandlv.zipno : "",
+        #   dlvappbi: @shahanhdr.dlvappbi,
+        #   dlvkbn: @shahanhdr.dlvkbn
+        # }
+        # session[:sale_draft] = draft
       end
       # 既存の明細を取得して表示用配列を作成
       @inputdtls = @shahanhdr.shahandtls.order(:juchugyo).map do |dtl|

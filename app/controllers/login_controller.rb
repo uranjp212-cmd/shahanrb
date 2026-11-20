@@ -11,13 +11,10 @@ class LoginController < ApplicationController
 
     # M_SHAIN から SHAINCD で検索
     shain = Ff2::Shain.find_by(SHAINCD: shaincd)
-    p shain
     if shain && shain.valid_password?(password)
       # ログイン成功
       session[:shain_id] = shain.shaincd
       session.delete(:sale_draft)
-      # redirect_to new_order_path, notice: "ログインしました。"
-      # redirect_to new_order_path
       redirect_to index_sale_path
     else
       # ログイン失敗

@@ -1,25 +1,26 @@
 class DeliveryAddressesController < ApplicationController
   # GET /delivery_addresses
   # ログイン社員に紐づく配送先一覧（JSON）を返す
-  def index
-    kyakuno = Ff2::Kokyaku.where(ntelno: current_shain.shaincd.to_s.rjust(6, "0")).maximum(:kyakuno)
-    p kyakuno
-    # 社員CDで絞り込んで最新順に取得
-    delives = Ff2::Todokesaki.where(kyakuno: kyakuno)
-                               .order(delivno: :desc)
-                               .includes(:address)
-    p delives.size
-    render json: delives.map { |addr|
-      {
-        delivno: addr.delivno,
-        delivmei: addr.delivmei,
-        tel: addr.ntelno,
-        adrcd: addr.adrcd,
-        adr2: addr.adr23.presence || "",
-        full_address: addr.fulladr + "　" + addr.adr23.presence || ""
-      }
-    }
-  end
+  # def index
+  #   kyakuno = Ff2::Kokyaku.where(ntelno: current_shain.shaincd.to_s.rjust(6, "0")).maximum(:kyakuno)
+  #   p kyakuno
+  #   # 社員CDで絞り込んで最新順に取得
+  #   delives = Ff2::Todokesaki.where(kyakuno: kyakuno)
+  #                              .order(delivno: :desc)
+  #                              .includes(:address)
+  #   p delives.size
+  #   render json: delives.map { |addr|
+  #     {
+  #       delivno: addr.delivno,
+  #       delivmei: addr.delivmei,
+  #       tel: addr.ntelno,
+  #       adrcd: addr.adrcd,
+  #       adr2: addr.adr23.presence || "",
+  #       full_address: addr.fulladr + "　" + addr.adr23.presence || "",
+  #       zipno: addr.zipno
+  #     }
+  #   }
+  # end
 
   # GET /delivery_addresses/search_address?zip=1234567
   # 郵便番号から住所マスタ（AddressMaster）を検索するAPI

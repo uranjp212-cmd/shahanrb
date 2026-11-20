@@ -4,16 +4,15 @@ Rails.application.routes.draw do
   post "/login", to: "login#create"
   delete "/login", to: "login#destroy", as: "logout"
 
-  get  "/orders/new", to: "orders#new", as: "new_order"
-  post "/orders",     to: "orders#create", as: "orders"
   post "/sale",     to: "sale#create", as: "sale"
   get "/sale", to: "sale#index", as: "index_sale"
   # 新規登録画面、修正画面のルート
   get "/sale/new", to: "sale#new", as: "new_sale"
   get "/sale/edit", to: "sale#edit", as: "edit_sale"
-  # ★ 受注削除用のルートを追加
+  # 受注削除用のルートを追加
   delete "/sale/:juchuno", to: "sale#destroy", as: "destroy_sale"
-  get "/products/search", to: "products#search"
+  # 商品検索用 
+  # get "/products/search", to: "products#search"
   get "/products/search_by_hinban", to: "products#search_by_hinban"
 
   resources :delivery_addresses, only: [ :index ] do

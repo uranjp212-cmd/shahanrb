@@ -3,9 +3,11 @@
 
   <%# 新規受注登録ボタン %>
   <div class="mb-3 text-end">
-    <%= link_to "新規受注登録", new_sale_path(from: 'index'), class: "btn btn-success px-4" %>
+    <%= link_to ("新規受注登録"), new_sale_path(from: 'index'),
+                      class: "btn btn-secondary px-4",
+                      style: "text-decoration: none;" %>
   </div>
-
+  <p ></p>
   <div class="table-responsive">
     <table class="table table-sm table-hover align-middle">
       <thead class="table-light">
@@ -19,7 +21,6 @@
         </tr>
       </thead>
       <tbody>
-        <% if @existing_orders %>
         <% @existing_orders .each do |order| %>
           <tr>
             <td><%= order[:juchuno] %></td>
@@ -27,36 +28,20 @@
             <td><%= order[:first_item_name] %></td>
             <td class="text-center"><%= order[:item_count] %>行</td>
             <td><%= order[:delivmei] %></td>
-<!-- これはHTMLコメントです。二重化すると両方コメントとなる
-<%# これはERBコメントです。ブラウザのHTMLソースには表示されません
-            <div class="d-flex justify-content-center align-items-center gap-2">
-                <%# 修正ボタン %>
-              <td class="text-center align-middle">
-                  <%= link_to "修正", edit_sale_path(juchuno: order[:juchuno], is_edit: "true"), class: "btn btn-outline-primary btn-sm px-3" %>
-              </td>
-                <%# 削除ボタン（link_to の turbo_method を使うことで、余計なフォームを生成せず完全に横並びになります） %>
-              <td class="text-center align-middle">
-                  <%= link_to "削除", destroy_sale_path(juchuno: order[:juchuno]), 
-                                data: { turbo_method: :delete, turbo_confirm: "受注番号 #{order[:juchuno]} を本当に削除しますか？" }, 
-                                style: "color: red;",
-                                class: "btn btn-outline-danger btn-sm px-3" %>
-              </td>
-            </div>
-%>
--->
             <td class="text-center">
               <%# 該当の受注番号を渡して修正画面へ遷移 %>
-              <%= link_to "修正", edit_sale_path(juchuno: order[:juchuno],is_edit: "true"), class: "btn btn-outline-primary btn-sm px-3" %>
+              <%= link_to "修正", edit_sale_path(juchuno: order[:juchuno],is_edit: "true"),
+                      class: "btn btn-secondary btn-sm px-3",
+                      style: "text-decoration: none;" %>
             </td>
             <%# 削除ボタン（button_to と method: :delete を使用） %>
             <td><%= button_to "削除", destroy_sale_path(juchuno: order[:juchuno]), 
                             method: :delete, 
                             data: { turbo_confirm: "受注番号 #{order[:juchuno]} を本当に削除しますか？" }, 
                             style: "color: red;",
-                            class: "btn btn-outline-danger btn-sm px-3" %></td>
+                            class: "btn btn-danger btn-sm px-3" %></td>
             </td>
           </tr>
-        <% end %>
         <% end %>
       </tbody>
     </table>

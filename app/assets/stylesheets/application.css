@@ -1,48 +1,12 @@
 /*
- * This is a manifest file that'll be compiled into application.css.
- *
- * With Propshaft, assets are served efficiently without preprocessing steps. You can still include
- * application-wide styles in this file, but keep in mind that CSS precedence will follow the standard
- * cascading order, meaning styles declared later in the document or manifest will override earlier ones,
- * depending on specificity.
- *
- * Consider organizing styles into separate files for maintainability.
+ *= require_tree .
+ *= require_self
  */
 
- /* #delivery-bt {
-  float: right;
- } */
+/* 1. まず共通のスタイルを読み込む */
+*= require application_base
 
-/* #dlv1 {
-  width: 200px;
-  margin: 10px;
-  float: right;
-}
-#dlv2 {
-  width: 120px;
-  margin: 10px;
-  float: right;
-}
-#dlv3 {
-  width: 200px;
-  margin: 10px;
-  clear: right;
-} */
-
-/* 数量入力欄用のスタイル */
-.item-quantity-input {
-    width: 40px;         /* 横幅指定 */
-    text-align: center;  /* 数字を中央寄せにすると見た目が綺麗になります */
-    padding: 4px 6px;    /* 内側の余白調整 */
-  }
-
-.btn-close {
-    background-color: #dc3545;
-    color: #fff;
-    border: none;
-    padding: 8px 16px;
-    text-decoration: none;
-    border-radius: 4px;
-    width: 70px;
-    cursor: pointer;
-  }
+/* 2. その後に画面個別のスタイルを読み込むことで、個別の調整を効かせやすくする */
+*= require login
+*= require sale
+*= require sale/delivery

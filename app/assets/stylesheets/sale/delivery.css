@@ -1,3 +1,7 @@
+.delivery-container {
+    max-width: 1100px;
+  }
+
 table {
     border-collapse: collapse;
 }
@@ -31,4 +35,16 @@ h6 {
     line-height: 30px;       /* ボタン内の文字を縦中央にする */
     border-radius: 0;        /* 枠線いっぱいに四角くフィットさせる（お好みで） */
     border: none;            /* セルの枠線と被る場合はボーダーを消す */
+}
+
+#btn-new {
+    /* width: 100px; */
+    border-color: hwb(240 12% 15%);
+    color: white;
+    background-color: #10499e;
+    text-align: center;
+}
+
+#card-new {
+    background-color: rgb(214, 209, 193);
 }

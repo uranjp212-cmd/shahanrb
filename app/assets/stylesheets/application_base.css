@@ -1,0 +1,48 @@
+/* ヘッダー全体のコンテナ */
+.app-header {
+  display: flex;
+  justify-content: space-between; /* 左右に端寄せ配置 */
+  align-items: center;          /* 垂直方向の中央揃え */
+  padding: 0px 20px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  margin: 0px 20px;
+}
+/* 右上に小さく表示するエリアのスタイル */
+.current-user-info {
+  font-size: 0.85rem; /* 小さめの文字サイズ */
+  color: #6c757d;    /* 控えめなグレーカラー */
+  display: flex;
+  align-items: center;
+  gap: 8px;          /* 要素間の余白 */
+}
+.current-user-info .user-name {
+  font-weight: bold;
+  color: #333333;    /* 社員名だけ少し濃くする */
+}
+
+/* 数量入力欄用のスタイル */
+.item-quantity-input {
+    width: 40px;         /* 横幅指定 */
+    text-align: center;  /* 数字を中央寄せにすると見た目が綺麗になります */
+    padding: 4px 6px;    /* 内側の余白調整 */
+  }
+
+.btn-logout {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 4px;
+    width: 70px;
+    cursor: pointer;
+  }
+
+.table th {
+    background-color: #e9ecef; /* Bootstrap等の標準的なライトグレー */
+    color: #333333;           /* 文字色は見やすい濃いグレー/黒 */
+    font-weight: bold;
+    /* padding: 10px; */
+    /* border-bottom: 2px solid hsl(0, 0%, 0%); */
+  }

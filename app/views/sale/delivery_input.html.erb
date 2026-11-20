@@ -7,7 +7,7 @@
   <%= stylesheet_link_tag "sale/delivery" %>
 <% end %>
 <!-- 配送先選択モーダル -->
-<div class="container my-4">
+<div class="container delivery-container my-4">
   <h2 class="mb-4">配送先の指定</h2>
   <%# <div class="card shadow-sm mt-3" id="delivery-section"> %>
     
@@ -20,21 +20,21 @@
     <%# link_to "受注画面に戻る", sale_index_path, class: "btn btn-outline-secondary btn-sm" %>
     <%# link_to "受注画面に戻る", new_sale_path, class: "btn btn-outline-secondary btn-sm" %>
     <% if session[:delivery_back_mode] == 'edit' && session[:delivery_target_juchuno].present? %>
-      <%= link_to "戻る", edit_sale_path(is_edit: "true",juchuno: session[:delivery_target_juchuno]), class: "btn btn-secondary px-4" %>
+      <%= link_to "戻る", edit_sale_path(is_edit: "true",juchuno: session[:delivery_target_juchuno]), class: "btn btn-logout px-4" %>
     <% else %>
-      <%= link_to "戻る", new_sale_path, class: "btn btn-secondary px-4" %>
+      <%= link_to "戻る", new_sale_path, class: "btn btn-logout px-4" %>
     <% end %>
   </div>
+  <p></p>
 
   <%# --- 1. 既存配送先の一覧（データがある場合のみ見出しとリストを表示） --- %>
   <% if @deliveries.present? && @deliveries.any? %>
     <%# --- 1. 既存の配送先が選ばれていた場合の表示枠 --- %>
-    <% if @current_delivery.present? && @current_delivery[:selection_type] = "existing" %>
+    <% if @current_delivery.present? && @current_delivery[:selection_type] == "existing" %>
       <div class="alert alert-info mb-4">
         <%# <h5 class="alert-heading fw-bold">現在選択されている配送先</h5> %>
         <p class="mb-1"><strong>選択中の配送先番号:</strong> <span class="badge bg-primary fs-5"><%= @current_delivery[:delivno] %></span></p>
       </div>
-      <% @current_delivery[:delivmei] = "" %> <%# 新規入力欄に表示しない %>
     <% end %>
     <div class="card-body">
       <!-- 1. 既存配送先一覧 -->
@@ -43,12 +43,13 @@
       <link href="delivery.css" rel="stylesheet" type="text/css">
       -->
       <div class="table-responsive style-max-height" style="max-height: 220px; overflow-y: auto;">
-        <table class="table table-sm table-hover align-middle mb-0">
+        <table class="table delivery-table table-sm table-hover align-middle mb-0">
           <thead class="table-light sticky-top">
             <tr>
               <th>№</th>
               <th>お届け先氏名</th>
               <th>電話番号</th>
+              <th>〒</th>
               <th>住所</th>
               <th>操作</th>
             </tr>
@@ -66,6 +67,7 @@
                 </td>
                 <td><%= d[:delivmei] %></td>
                 <td><%= d[:tel] %></td>
+                <td><%= d[:zipno] %></td>
                 <td><%= d[:full_address] %></td>
                 <td>
                   <%# 一覧選択時は delivno を含めて apply_delivery へ POST %>
@@ -78,8 +80,8 @@
                                   delivmei: d[:delivmei], 
                                   delivery_tel: d[:tel], 
                                   address_cd: d[:adrcd], 
-                                  address_after: d[:adr23], 
-                                  zipno: nil 
+                                  address_after: d[:adr2], 
+                                  zipno: d[:zipno]
                                 }, 
                                 class: "btn btn-sm btn-primary",
                                 data: { turbo: false } %>
@@ -94,8 +96,8 @@
   <hr>
 
   <%# --- パターン B: 新規配送先の直接入力 --- %>
-  <fieldset>
-    <legend>新規配送先の入力</legend>
+  <fieldset id="card-new">
+    <legend style="background-color: rgb(214, 209, 193);">新規配送先の入力</legend>
 <!-- これはHTMLコメントです。
   <div class="card shadow-sm">
     <div class="card-header bg-light">
@@ -105,13 +107,16 @@
     <div class="card-body text-start">
       <%= form_with(url: apply_delivery_sale_index_path, method: :post, data: { turbo: false }) do |f| %>
         <%= f.hidden_field :selection_type, value: 'new' %>
-
         <div class="mb-3 text-start">
           <%= f.label :delivmei, "お届け先氏名", class: "form-label fw-bold" %>
           <%# f.text_field :delivmei, class: "form-control", required: true %>
-          <%= f.text_field :delivmei, 
-                value: (@current_delivery.present? ? @current_delivery[:delivmei] : ''), 
+          <%# f.text_field :delivmei, 
+                value: ((@current_delivery.present? && @current_delivery[:selection_type] == "new") ? @current_delivery[:delivmei] : ''), 
                 class: "form-control", 
+                required: true %%>
+          <%= f.text_field :delivmei, 
+                value: (new_delivery_value(@current_delivery, :delivmei)),
+                class: "form-control",
                 required: true %>
         </div>
 
@@ -119,7 +124,7 @@
           <%= f.label :delivery_tel, "電話番号　　", class: "form-label fw-bold" %>
           <%# f.text_field :delivery_tel, class: "form-control" %>
           <%= f.text_field :delivery_tel,
-                value: (@current_delivery.present? ? @current_delivery[:delivery_tel] : ''),
+                value: (new_delivery_value(@current_delivery, :delivery_tel)),
                 maxlength: "15",
                 class: "form-control" %>
         </div>
@@ -127,7 +132,7 @@
         <div class="mb-3">
           <%= f.label :new_zip, "郵便番号　　", class: "form-label fw-bold" %>
           <%= f.text_field :new_zip, class: "form-control",
-                                      value: (@current_delivery.present? ? @current_delivery[:zipno] : ''),
+                                      value: (new_delivery_value(@current_delivery, :zipno)),
                                       maxlength: "7",
                                       onblur: "searchAddressByZip(this.value)" %>
           <%# <label class="form-label small">郵便番号</label> %>
@@ -142,22 +147,21 @@
           </select>
           <!-- サーバー送信用の住所コード隠しフィールド -->
           <%= f.hidden_field :new_address_cd, class: "form-control",
-                              value: (@current_delivery.present? ? @current_delivery[:address_cd] : '') %>
+                              value: (new_delivery_value(@current_delivery, :address_cd)) %>
           <!-- 表示用の住所基本テキスト -->
           <input type="hidden" id="new_address_base">
         </div>
-        <div>adrcd=<%= @current_delivery.present? ? @current_delivery[:address_cd] : '' %></div>
         <div class="mb-3">
           <%= f.label :address_after, "住所番地以降", class: "form-label fw-bold" %>
           <%= f.text_field :new_address_after, class: "form-control",
-                                            value: (@current_delivery.present? ? @current_delivery[:address_after] : ''),
+                                            value: (new_delivery_value(@current_delivery, :address_after)),
                                             placeholder: "例: 1-2-3 ○○ビル201",
                                             required: true %>
         </div>
 
         <p></p>
         <div class="text-end">
-          <%= f.submit "新規配送先を適用する", class: "btn btn-success px-4", onclick: "selectNewAddress(event)" %>
+          <%= f.submit "新規配送先を適用する", class: "btn btn-success px-4", style: "width: 160px;", id: "btn-new", onclick: "selectNewAddress(event)" %>
         </div>
       <% end %>
     </div>

@@ -1,5 +1,12 @@
 <div class="order-container">
-  <h2>社販受注 <%= @is_edit.to_s == "true" ? "修正画面" : "登録画面" %></h2>
+  <header class="app-header">
+    <div class="header-left">
+      <h2>社販受注 <%= @is_edit.to_s == "true" ? "修正画面" : "登録画面" %></h2>
+    </div>
+    <div class="current-user-info">
+      <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:shainmei) %></p>
+    </div>
+  </header>
 <!-- これはHTMLコメントです。二重化すると両方コメントとなる
 <%# これはERBコメントです。ブラウザのHTMLソースには表示されません
   <p> val_readonly=<%= @val_readonly %></p>
@@ -15,7 +22,6 @@
       <%= flash[:alert] %>
     </div>
   <% end %>
-  <p class="user-info">ログイン社員: <%= current_shain.shaincd %> <%= current_shain.try(:shainmei) %></p>
 
   <% if @is_edit.to_s == "true" and !@is_completed and !@is_error %>
     <div class="alert alert-info" style="background-color: #e8f4f8; color: #1d6f8a; border-color: #bce8f1; padding: 10px; margin-bottom: 15px;">
@@ -121,7 +127,7 @@
       <input type="hidden" name="zipno" value="<%= @selected_delivery[:zipno] if @selected_delivery.present? %>">
     </div>
     <p ></p>
-    <table class="order-table" id="order-table">
+    <table class="table order-table" id="order-table">
       <thead>
         <tr>
           <th style="width: 50px;">行</th>
